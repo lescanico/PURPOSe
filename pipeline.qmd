@@ -1,0 +1,991 @@
+---
+title: "PURPOSe"
+subtitle: "Predicting Utilization of Resources in Psychiatry Outpatient Services"
+author: "Nicolas Lescano"
+editor: visual
+format:
+  html:
+    css: "style.css"
+    self-contained: true
+    embed-resources: true
+    toc: true
+    toc-depth: 5
+    toc-location: left
+    code-fold: true
+    code-fold-default: true
+    code-tools: true
+execute:
+  eval: true
+  message: false
+  warning: false
+---
+
+NOTE: This project is under version control (git). All scripts and data pipeline steps are tracked for reproducibility.
+
+[![](images/banner.png){fig-alt="banner"}](https://ibi.med.upenn.edu/)
+
+------------------------------------------------------------------------
+
+**ABSTRACT**
+
+**Objective:** To develop and evaluate machine learning models leveraging structured electronic health record (EHR) data from outpatient psychiatry to predict (1) annual provider time utilization (hours per year \[HPY\]) and (2) binary high-utilization tier (HUT).
+
+**Materials and Methods:** We constructed a retrospective cohort comprising X patients (X visits) scheduled with psychiatric prescribers across Penn Medicine clinics over a 14-year period. X predictors were derived from patient appointments within a 90-day interval following each patient's index visit. X models were trained on 80% of the cohort and evaluated on a held-out test set (20%). HPY was modeled as a continuous variable, whereas HUT was defined as utilization above the cohort median annual provider hours. Performance metrics included variance explained (R²), root mean squared error (RMSE), and mean absolute error (MAE) for HPY, and area under the receiver operating characteristic curve (AUC), sensitivity, specificity, precision, F₁-score, accuracy, and Cohen's κ for HUT.
+
+**Results:** In the test set (n = X), the HPY model explained X% of the variance (R² = 0.xxx; RMSE = X.xx hours; MAE = X.xx hours). The HUT model effectively distinguished high-utilization patients (AUC = 0.xxx; sensitivity = XX.x%; specificity = XX.x%; precision = XX.x%; F₁-score = XX.x%; accuracy = XX.x%; Cohen's κ = 0.xx).
+
+**Discussion and Conclusion:** Supervised machine learning models using routinely collected structured EHR data accurately predict outpatient psychiatric resource use. These predictive tools offer interpretable and scalable approaches for patient triage, panel management, and strategic resource allocation in outpatient mental healthcare delivery.
+
+**BACKGROUND AND SIGNIFICANCE**
+
+Outpatient psychiatry is under mounting pressure. Nationwide shortages of psychiatric providers, surging demand for mental health services and increasingly complex patient needs have exposed limitations in traditional scheduling systems. Most clinics still rely on reactive or static scheduling heuristics—patients are assigned follow-ups at fixed intervals based on clinician habit, legacy templates, or insurance constraints^1^. These rules rarely account for individual variation in care needs, clinical complexity, or engagement patterns. As a result, patients may be under- or over-scheduled, leading to missed opportunities for timely care, provider burnout, and inefficient use of limited appointment capacity. This shortage has been formally recognized by the American Psychiatric Association, which identified psychiatry as one of the most critically understaffed medical specialties in the U.S.^2^
+
+The challenge is particularly acute in psychiatry, where visit frequency and length are highly variable. Unlike procedural specialties where care is structured around predefined interventions, psychiatric care often depends on evolving therapeutic relationships, medication adjustments, psychosocial stressors and longitudinal monitoring. Mental health encounters can vary widely in length, complexity and cadence, particularly when managing severe mental illness, comorbid conditions, or social instability. Therefore, equitable access and continuity of care depend not only on capacity, but on intelligent, adaptive scheduling that reflects patient-level resource needs.
+
+Although the mental health field has long recognized these challenges, few operational tools exist to anticipate and optimize patient scheduling. Most resource allocation efforts are manual and retrospective, adjusting schedules only after bottlenecks or missed visits occur. More proactive strategies are needed to identify high-need patients early and align them with appropriate follow-up intensity. Machine learning (ML) offers a promising framework for this task. ML methods can learn complex associations from structured EHR data, enabling prediction of outcomes like hospitalizations, appointment attendance, and medication adherence^3-4^. In psychiatry, ML has been applied to predict suicide risk^5^, treatment engagement^6^ and therapy dropout^7^, but less frequently to anticipate resource utilization over time.
+
+Most existing ML tools in behavioral health focus on short-term or single-event outcomes: whether a patient will attend their next visit, decompensate, or require hospitalization. While these predictions are clinically valuable, they do not directly support operational planning. Health systems need to understand not only who will need care, but how much, how often, and over what time horizon. Clinic directors, schedulers, and population health managers must make decisions about panel balancing, appointment spacing, and staffing based on anticipated longitudinal demand, not just isolated risks. This calls for a different class of models: those that can estimate cumulative outpatient resource needs at the patient level.
+
+The present study, titled PURPOSe (Predicting Utilization of Resources in Psychiatry Outpatient Services), aims to fill this gap. Rather than forecasting clinical events, we sought to model longitudinal outpatient resource utilization among patients seen by psychiatric prescribers —attending psychiatrists, residents, fellows, and nurse practitioners—within a large academic health system. Our primary outcome, Hours Per Year (HPY), quantifies the total amount of provider time a patient utilizes over a 12-month period. This measure captures both the frequency and length of visits, offering a more comprehensive view of care burden than visit counts alone. HPY is directly relevant to operational concerns like RVU planning, template design, and team-based care allocation.
+
+This work contributes a novel framework for operational forecasting in outpatient psychiatry. By modeling how much care a patient is likely to require—rather than just whether care will occur—we extend the scope of predictive analytics into clinic-level planning, triage design, and population health infrastructure. The model outputs are both interpretable and actionable, bridging the gap between algorithmic prediction and real-world resource allocation.
+
+**METHODS**
+
+***Table 1. Cohort Characteristics***
+
+***Table 2. Predictor Definitions and Summary***
+
+***Table 3. HPY Regression Performance***
+
+***Table 4. High‐Utilization Classification Performance***
+
+**RESULTS**
+
+**Model Performance**  
+
+**Utilization Load by Tier**
+
+**Subgroup Differences by Utilization Tier**
+
+**Feature Importance and Predictive Factors**
+
+**DISCUSSION**
+
+This balance—between clinical data for care and administrative data for documentation—mirrors ongoing tensions in EHR design that affect both usability and analytic potential^**9**^.
+
+**CONCLUSION**
+
+**FIGURE LEGENDS**
+
+***Figure 1. HPY Distribution***
+
+***Figure 2. Observed vs. Predicted HPY***
+
+***Figure 3. Regression Residuals***
+
+***Figure 4. HPY Model Feature Importance***
+
+***Figure 5. ROC Curve for High‐Utilization Tier***
+
+***Figure 6. Precision–Recall Curve for High‐Utilization Tier***
+
+**ACKNOWLEDGMENTS**
+
+The author used generative AI tools (ChatGPT by OpenAI) to assist with manuscript drafting and revision. All outputs were critically reviewed and revised by the author to ensure accuracy and integrity.
+
+**COMPETING INTERESTS**
+
+The author declares no competing interests.
+
+**FUNDING**
+
+This research received no specific grant from any funding agency in the public, commercial, or not-for-profit sectors.
+
+**AUTHOR CONTRIBUTIONS**
+
+N.L. conceived the study, conducted the data analysis, and wrote the manuscript.
+
+**DATA AVAILABILITY**
+
+The data used in this study were extracted from Penn Medicine's Epic electronic health record system and contain protected health information. As such, the dataset is not publicly available. De-identified summary data and modeling code may be made available upon reasonable request to the corresponding author, subject to institutional review.
+
+**REFERENCES**
+
+1.  Benjenk I, Chen J, Yu H. Predictors of appointment non-attendance in outpatient psychiatry. Psychiatr Serv. 2022;73(2):123–130. doi:10.1176/appi.ps.202000451
+
+2.  American Psychiatric Association. Psychiatric Workforce Shortage: Report of the APA Presidential Task Force. Washington, DC: APA; 2023. Available from:<https://www.psychiatry.org/>
+
+3.  Rajkomar A, Dean J, Kohane I. Machine learning in medicine. N Engl J Med. 2019;380(14):1347–1358. doi:10.1056/NEJMra1814259
+
+4.  Miotto R, Wang F, Wang S, Jiang X, Dudley JT. Deep learning for healthcare: Review, opportunities and challenges. Brief Bioinform. 2018;19(6):1236–1246. doi:10.1093/bib/bbx044
+
+5.  Walsh CG, Ribeiro JD, Franklin JC. Predicting risk of suicide attempts over time through machine learning. Clin Psychol Sci. 2018;6(3):456–472. doi:10.1177/2167702617691560
+
+6.  Greene CJ, Morland LA, Macdonald A, Frueh BC. Predictive analytics for engagement and retention in internet-based treatment for posttraumatic stress disorder. J Technol Behav Sci. 2021;6(1):29–38. doi:10.1007/s41347-020-00136-6
+
+7.  Coppersmith G, Ngo K, Leary R, Wood A, McKeown K. Assessing clinical utility of machine learning in predicting dropout from internet-based CBT for depression. J Affect Disord. 2021;282:1040–1048. doi:10.1016/j.jad.2020.12.136
+
+8.  Wright MN, Ziegler A. ranger: A fast implementation of random forests for high dimensional data in C++ and R. J Stat Softw. 2017;77(1):1–17. doi:10.18637/jss.v077.i01
+
+9.  Zulman DM, Shah NH, Verghese A. Evolutionary pressures on the electronic health record: Caring for patients versus documenting for legal and billing purposes. JAMA. 2021;326(7):613–614. doi:10.1001/jama.2021.11127
+
+## Environment Setup
+
+### Initiation
+
+```{r renv-init, eval=TRUE}
+# Install and initialize renv from scratch if needed
+# (Ensures reproducible environment)
+
+if (!requireNamespace("renv", quietly = TRUE)) {
+  install.packages("renv", repos = "https://cloud.r-project.org")
+}
+
+library(renv)
+
+Sys.setenv(RENV_CONSENT = "yes")
+
+if (!file.exists("renv.lock")) {
+  renv::init(bare = TRUE)
+} else {
+  renv::activate()
+}
+```
+
+### Snapshot
+
+```{r renv-snapshot, eval=FALSE}
+# Save current package versions to renv.lock
+renv::snapshot()
+```
+
+### Package Management
+
+```{r packages, eval=TRUE}
+# Ensure all required packages are installed and loaded (within renv environment)
+required_packages <- c(
+  "readr", "dplyr", "tidyr", "janitor", "lubridate", "stringr", "forcats",
+  "scales", "gt", "ggplot2", "tidymodels"
+)
+
+new_packages <- required_packages[!(required_packages %in% installed.packages()[,"Package"])]
+if(length(new_packages)) install.packages(new_packages, repos = "https://cloud.r-project.org")
+
+invisible(lapply(required_packages, library, character.only = TRUE))
+```
+
+## Methods
+
+### Anonymization
+
+```{r anon, eval=FALSE}
+# Step 1: Anonymize raw visit data
+# - Checks for file existence and provides informative errors
+# - Outputs anonymized data and mapping files
+
+library(readr) # for .csv reading
+library(dplyr) # for data manipulation
+
+if (!file.exists("secure/visits_raw.csv")) {
+  stop("File 'secure/visits_raw.csv' not found. Please ensure the raw data is available.")
+}
+
+# Load and tag raw visit data
+visits_raw <- read_csv("secure/visits_raw.csv",
+                       col_types = cols(.default = col_character())) |>
+  mutate(patient_key = paste(`Patient Name`, `Birth Date`, sep = "_"))
+
+
+# Standardize MRNs to a canonical one per patient
+full_mrn_map <- visits_raw |>
+  group_by(patient_key) |>
+  mutate(canonical_mrn = min(MRN)) |>
+  ungroup() |>
+  distinct(MRN, canonical_mrn)
+
+
+# Consistency check
+mrn_count <- n_distinct(full_mrn_map$canonical_mrn)
+key_count <- n_distinct(visits_raw$patient_key)
+
+message("Unique canonical MRNs: ", mrn_count)
+message("Unique Name + DOB pairs: ", key_count)
+if (mrn_count == key_count) {
+  message("✅ Consistency check passed: canonical MRNs match unique (Name, DOB) pairs!")
+} else {
+  message("❌ Still inconsistent: check for remaining mismatches.")
+}
+
+
+# Encode MRNs
+set.seed(101)
+mrn_canonical_map <- full_mrn_map |>
+  distinct(canonical_mrn) |>
+  arrange(sample(n())) |>
+  mutate(patient_id = sprintf("%05d", row_number()))
+
+mrn_mapping <- full_mrn_map |>
+  left_join(mrn_canonical_map, by = "canonical_mrn") |>
+  left_join(visits_raw |> select(MRN, patient_key) |> distinct(), by = "MRN") |>
+  select(MRN, canonical_mrn, patient_key, patient_id)
+
+
+# Encode Providers
+set.seed(202)
+provider_mapping <- visits_raw |>
+  distinct(`Primary Provider`) |>
+  rename(provider_name = `Primary Provider`) |>
+  arrange(sample(n())) |>
+  mutate(provider_id = sprintf("%03d", row_number()))
+
+
+# Save mapping (for future decoding if needed)
+mapping <- list(
+  mrn      = mrn_mapping,
+  provider = provider_mapping
+)
+
+
+# Deidentify visits
+visits_anon <- visits_raw |>
+  left_join(mrn_mapping |> select(MRN, patient_id), by = "MRN") |>
+  left_join(provider_mapping, by = c("Primary Provider" = "provider_name")) |>
+  mutate(`Postal Code` = substr(`Postal Code`, 1, 3)) |>
+  select(
+    patient_id,
+    provider_id,
+    everything(),
+    -MRN,
+    -`Patient Name`,
+    -`Birth Date`,
+    -`Primary Provider`,
+    -patient_key
+  )
+
+
+# Add visit_id sorted by patient/date
+visits_anon <- visits_anon |>
+  arrange(patient_id, `Visit Date`) |>
+  mutate(visit_id = sprintf("%06d", row_number())) |>
+  select(visit_id, everything())
+
+
+# Save anonymized data and mappings
+if (!dir.exists("data")) dir.create("data", recursive = TRUE)
+if (!dir.exists("secure")) dir.create("secure", recursive = TRUE)
+
+visits_anon |> saveRDS("data/visits_anon.rds")
+mapping |> saveRDS("secure/anon.rds")
+```
+
+### Cleaning
+
+```{r clean, eval=FALSE}
+# Step 2: Clean and standardize anonymized data
+# - Checks for file existence and provides informative errors
+# - Outputs cleaned data for downstream analysis
+
+library(dplyr)
+library(tidyr)
+library(janitor)
+library(lubridate)
+library(stringr)
+library(forcats)
+
+if (!file.exists("data/visits_anon.rds")) {
+  stop("File 'data/visits_anon.rds' not found. Run the anonymization step first.")
+}
+
+# Read deidentified data and standardize column names
+visits_clean <- readRDS("data/visits_anon.rds") |>
+  clean_names()
+
+
+# Manually ename columns to short, consistent names
+visits_clean <- visits_clean |>
+  rename(
+    date              = visit_date,
+    time              = appointment_time,
+    length            = appointment_length_category,
+    type              = visit_type,
+    status            = appointment_status,
+    age               = age_at_visit_years,
+    sex               = legal_sex,
+    race              = patient_race,
+    ethnic_group      = patient_ethnic_group,
+    zip3              = postal_code,
+    payer             = primary_payer_financial_class,
+    diagnosis         = primary_diagnosis,
+    medications       = medications_ordered,
+    procedures        = procedures_ordered,
+    bmi               = bmi_kg_m_2,
+    dbp               = bp_diastolic,
+    sbp               = bp_systolic,
+    provider_type     = primary_provider_type,
+    copay_col         = copay_collected,
+    copay_due         = copay_due,
+    prepay_col        = prepayment_collected,
+    prepay_due        = prepayment_due,
+    los               = level_of_service,
+    is_portal_active  = portal_active_at_scheduling,
+    portal_engagement = my_chart_digital_engagement_metric
+  )
+
+
+# Convert empty strings to NA
+visits_clean <- visits_clean |>
+  mutate(across(where(is.character), ~ na_if(.x, "")))
+
+# Impute NAs in diagnosis, medications, and procedures columns with "None"
+visits_clean <- visits_clean |>
+  mutate(across(
+    c(diagnosis, medications, procedures),
+    ~ replace_na(.x, "None")
+  ))
+
+# Parse dates/times, coerce types, and correct obvious typos and outliers
+visits_clean <- visits_clean |>
+  mutate(
+    date = mdy(date),                              # calendar date
+    time = round(as.numeric(hms(time)) / 3600, 2), # hours decimal
+
+    # convert to numeric
+    across(c(length, age, bmi, dbp, sbp,
+             copay_col, copay_due,
+             prepay_col, prepay_due,
+             portal_engagement),
+           as.numeric),
+    
+    # remove outliers
+    bmi = if_else(bmi > 100, NA_real_, bmi),
+
+    # fix typos
+    length = case_when(
+      length == 330 ~ 30,
+      length == 660 ~ 60,
+      TRUE          ~ length
+    ),
+    
+    # zero-impute
+    across(any_of(c("portal_engagement",
+                    "copay_col",
+                    "copay_due",
+                    "prepay_col",
+                    "prepay_due")),
+           ~replace_na(.x, 0)),
+    
+    # factorize
+    across(c(type, status, sex, race,
+             ethnic_group, marital_status,
+             religion, zip3, payer,
+             provider_type, los),
+           factor),
+
+    # logical flags
+    is_portal_active = as.logical(as.numeric(is_portal_active)),
+    is_tele          = str_detect(type,
+                                  regex("tele|video|virtual", ignore_case = TRUE))
+  )
+
+# 6. Combine SBP and DBP into one "bp" column
+visits_clean <- visits_clean |>
+  unite(bp, sbp, dbp, sep = "/", remove = TRUE)
+
+# 7. Reduce cardinality and disperse levels
+visits_clean <- visits_clean |>
+  mutate(
+    
+    
+    is_hispanic = coalesce(ethnic_group == "Hispanic Latino", FALSE),
+    
+    
+    marital_status = factor(case_when(
+        marital_status %in% c("Domestic Partner",
+                              "Partner", "Other")     ~ "Other/Unknown",
+        marital_status %in% c("Single", "Married",
+                              "Divorced", "Separated",
+                              "Widowed")              ~ marital_status,
+        TRUE ~ "Other/Unknown"
+      )),
+    
+    
+    type = type |>
+      fct_collapse(
+        `Follow up` = c(
+          "ESTAB PT BRIEF","ESTAB PT MODERATE","ESTAB PT SHORT",
+          "RETURN PATIENT VISIT","ESTAB PT COMPREHENSIVE",
+          "RPV TELEHEALTH","COBALT TELEHEALTH RETURN",
+          "TELEHEALTH VIDEO RPV","TELEMEDICINE RETURN PATIENT"
+        ),
+        New         = c(
+          "NEW PT LONG","NEW PT SHORT","NEW PATIENT VISIT",
+          "NPV TELEHEALTH","COBALT TELEHEALTH NEW",
+          "TELEHEALTH VIDEO NPV"
+        ),
+        other_level = "Other"
+      ) |>
+      fct_na_value_to_level("Other"),
+    
+
+    race = race |>
+      fct_lump(n = 3, other_level = "Other/Unknown") |>
+      fct_na_value_to_level("Other/Unknown"),
+    
+
+    religion = factor(case_when(
+      religion %in% c("No Affiliation Given",
+                      "Agnostic",
+                      "Atheist")                  ~ "No Religion",
+      
+      religion %in% c("Roman Catholic",
+                      "Eastern Catholic")         ~ "Catholic",
+      
+      religion %in% c("Methodist",
+                      "Presbyterian",
+                      "Episcopalian",
+                      "Lutheran",
+                      "Quaker")                   ~ "Mainline Protestant",
+      
+      religion %in% c("Baptist",
+                      "Pentacostal",
+                      "Jehovah's Witness",
+                      "Church of God/Christian",
+                      "African Methodist",
+                      "Protestant",
+                      "Fundamentalist")           ~ "Evangelical/Other Protestant",
+      
+      religion %in% c("Christian",
+                      "Non-Denominational")       ~ "Christian (Generic)",
+      
+      religion %in% c("Church of Jesus Christ 
+                      of Latter-day Saints",
+                      "Mormon")                   ~ "Mormon",
+      
+      religion %in% c("Jewish",
+                      "Muslim/Moslem/Islam",
+                      "Buddhist",
+                      "Hindu")                    ~ religion,
+      TRUE                                        ~ "Other/Unknown"
+    )),
+    
+
+    zip3 = zip3 |>
+      fct_lump(n           = 10,
+               other_level = "Other/Unknown") |>
+      fct_na_value_to_level("Other/Unknown"),
+    
+
+    payer = payer |>
+      fct_collapse(
+        BCBS       = c("Blue Cross","Blue Shield"),
+        Medicare   = c("Medicare","Managed Medicare"),
+        Medicaid   = c("Medicaid (MA)","Managed Medicaid"),
+        Commercial = c("Commercial","Managed Care"),
+        `Self Pay` = "Self-Pay",
+        other_level = "Other"
+      ) |>
+      fct_na_value_to_level("Other"),
+    
+
+    provider_type = provider_type |>
+      fct_collapse(
+        Attending         = c("Physician","Psychiatrist"),
+        `Resident/Fellow` = c("Resident","Fellow"),
+        NP                = "Nurse Practitioner"              
+      ) |>
+      fct_na_value_to_level("Other"),
+    
+
+    # los → analytic buckets + Other
+    los = los |>
+      fct_collapse(
+        Psych_Eval     = c("90791","90792","90801"),
+        Psych_20min    = "90832",
+        Psych_45min    = "90834",
+        Psych_60min    = "90837",
+        Psych_Other    = c("90804", "90805","90806", "90807",
+                          "90808","90809","90810", "90833",
+                          "90849","90865","90887","90899"),
+        Psych_Crisis   = c("90838","90839","90840"),
+        Family_Tx      = c("90846","90847","90836"),
+        Group_Tx       = c("90853","90885","90889"),
+        Med_Management = "90862",
+        E_M_New        = c("99201","99202","99203","99204","99205","99215R"),
+        E_M_Estab      = c("99211","99212","99213","99214","99215"),
+        Consult        = c("99241","99242","99243","99244","99245"),
+        Other_Services = c("96102","96372","99358","99443","99080"),
+        Substance_Tx   = "H0004",
+        other_level    = "Other"
+        ) |>
+      fct_na_value_to_level("Other")
+  ) |>
+  # drop unused factor levels
+  mutate(across(where(is.factor), droplevels)) |>
+  # Remove converted vars
+  select(-ethnic_group)
+
+# 8. Save the cleaned data
+if (!dir.exists("data")) dir.create("data", recursive = TRUE)
+visits_clean |>
+  saveRDS("data/visits_clean.rds")
+```
+
+### Feature Engineering
+
+```{r engineer, eval=FALSE}
+# Step 3: Feature engineering for utilization prediction
+# - Loads cleaned data and applies feature engineering script
+# - Outputs engineered features for modeling
+
+source("scripts/engineer_utilization.R")
+
+if (!file.exists("data/visits_clean.rds")) {
+  stop("File 'data/visits_clean.rds' not found. Run the cleaning step first.")
+}
+
+# Ensure output directory exists
+if (!dir.exists("data")) dir.create("data", recursive = TRUE)
+
+visits_clean <- readRDS("data/visits_clean.rds") |>
+  select(
+    -bmi
+  )
+
+features <- engineer_utilization(
+  visits_data = visits_clean,
+  id_var = "patient_id",
+  demographic_vars = c("age", "sex", "race"),
+  visit_vars = c("length", "status", "type"),
+  observed_days = 90,      # 90-day observation window
+  prediction_months = 12,  # 12-month prediction horizon
+  output_path = "data/features_90d_12m.rds"  # This will save all outputs to data/
+)
+
+visits_feat <- features$visits_feat
+patients_feat <- features$patients_feat
+utilization_summary <- features$utilization_summary
+```
+
+### Data Modeling
+
+#### Preparation
+
+```{r prep, eval=FALSE}
+# Step 6: Prepare data for modeling (train/test split)
+# - Checks for file existence and provides informative errors
+# - Outputs train/test sets for modeling
+
+library(tidymodels)
+library(dplyr)
+library(readr)
+
+if (!file.exists("data/features_90d_12m_patients.rds")) {
+  stop("File 'data/features_90d_12m_patients.rds' not found. Run feature engineering first.")
+}
+
+patients_feat <- readRDS("data/features_90d_12m_patients.rds")
+
+# Add decile column for stratification
+patients_feat <- patients_feat |>
+  mutate(
+    hpy_decile = ntile(future_hours_12m, 10)
+  )
+
+# Perform stratified split on decile
+split_obj <- initial_split(patients_feat, prop = 0.80, strata = hpy_decile)
+
+# Extract train/test sets
+train_data <- training(split_obj)
+test_data  <- testing(split_obj)
+
+# Check save path exists, create if needed
+if (!dir.exists("data")) dir.create("data", recursive = TRUE)
+
+# Save outputs
+saveRDS(train_data, file = "data/train_90d_12m.rds")
+saveRDS(test_data,  file = "data/test_90d_12m.rds")
+
+cat("Train set size:", nrow(train_data), "\n")
+cat("Test set size :", nrow(test_data), "\n")
+```
+
+#### Regression
+
+```{r regression, eval=FALSE}
+# Step 7: Train regression model for HPY prediction
+# - Uses engineered features to predict continuous HPY
+# - Outputs model performance metrics
+
+library(tidymodels)
+library(ranger)
+
+if (!file.exists("data/train_90d_12m.rds")) {
+  stop("File 'data/train_90d_12m.rds' not found. Run data preparation first.")
+}
+
+train_data <- readRDS("data/train_90d_12m.rds")
+test_data <- readRDS("data/test_90d_12m.rds")
+
+# Define outcome variable
+outcome_var <- "future_hours_12m"
+
+# Remove outcome from predictors
+predictors <- setdiff(names(train_data), c("patient_id", outcome_var))
+
+# Create recipe
+recipe <- train_data |>
+  recipe(as.formula(paste(outcome_var, "~ ."))) |>
+  update_role(patient_id, new_role = "id") |>
+  step_rm(all_predictors()) |>
+  step_add_role(all_of(predictors), new_role = "predictor")
+
+# Define model
+rf_model <- rand_forest(
+  mtry = tune(),
+  trees = 1000,
+  min_n = tune()
+) |>
+  set_engine("ranger") |>
+  set_mode("regression")
+
+# Create workflow
+workflow <- workflow() |>
+  add_recipe(recipe) |>
+  add_model(rf_model)
+
+# Define tuning grid
+tuning_grid <- grid_regular(
+  mtry(range = c(5, 20)),
+  min_n(range = c(2, 10)),
+  levels = 3
+)
+
+# Perform cross-validation
+folds <- vfold_cv(train_data, v = 5, strata = hpy_decile)
+
+# Tune model
+tuned_model <- workflow |>
+  tune_grid(
+    resamples = folds,
+    grid = tuning_grid,
+    metrics = metric_set(rmse, mae, rsq)
+  )
+
+# Select best model
+best_model <- tuned_model |>
+  select_best(metric = "rmse")
+
+# Finalize workflow
+final_workflow <- workflow |>
+  finalize_workflow(best_model)
+
+# Fit final model
+final_fit <- final_workflow |>
+  fit(train_data)
+
+# Make predictions
+predictions <- final_fit |>
+  predict(test_data) |>
+  bind_cols(test_data |> select(patient_id, all_of(outcome_var)))
+
+# Calculate performance metrics
+performance <- predictions |>
+  metrics(truth = !!sym(outcome_var), estimate = .pred)
+
+# Save results
+saveRDS(final_fit, "data/regression_model.rds")
+saveRDS(performance, "data/regression_performance.rds")
+saveRDS(predictions, "data/regression_predictions.rds")
+
+cat("Regression model training complete.\n")
+print(performance)
+```
+
+#### Classification
+
+```{r classification, eval=FALSE}
+# Step 8: Train classification model for HUT prediction
+# - Uses engineered features to predict binary HUT
+# - Outputs model performance metrics
+
+library(tidymodels)
+library(ranger)
+
+if (!file.exists("data/train_90d_12m.rds")) {
+  stop("File 'data/train_90d_12m.rds' not found. Run data preparation first.")
+}
+
+train_data <- readRDS("data/train_90d_12m.rds")
+test_data <- readRDS("data/test_90d_12m.rds")
+
+# Define outcome variable (high utilization tier)
+outcome_var <- "hut50_12m"  # 50th percentile threshold
+
+# Remove outcome from predictors
+predictors <- setdiff(names(train_data), c("patient_id", outcome_var))
+
+# Create recipe
+recipe <- train_data |>
+  recipe(as.formula(paste(outcome_var, "~ ."))) |>
+  update_role(patient_id, new_role = "id") |>
+  step_rm(all_predictors()) |>
+  step_add_role(all_of(predictors), new_role = "predictor")
+
+# Define model
+rf_model <- rand_forest(
+  mtry = tune(),
+  trees = 1000,
+  min_n = tune()
+) |>
+  set_engine("ranger") |>
+  set_mode("classification")
+
+# Create workflow
+workflow <- workflow() |>
+  add_recipe(recipe) |>
+  add_model(rf_model)
+
+# Define tuning grid
+tuning_grid <- grid_regular(
+  mtry(range = c(5, 20)),
+  min_n(range = c(2, 10)),
+  levels = 3
+)
+
+# Perform cross-validation
+folds <- vfold_cv(train_data, v = 5, strata = hut50_12m)
+
+# Tune model
+tuned_model <- workflow |>
+  tune_grid(
+    resamples = folds,
+    grid = tuning_grid,
+    metrics = metric_set(roc_auc, accuracy, sensitivity, specificity)
+  )
+
+# Select best model
+best_model <- tuned_model |>
+  select_best(metric = "roc_auc")
+
+# Finalize workflow
+final_workflow <- workflow |>
+  finalize_workflow(best_model)
+
+# Fit final model
+final_fit <- final_workflow |>
+  fit(train_data)
+
+# Make predictions
+predictions <- final_fit |>
+  predict(test_data, type = "prob") |>
+  bind_cols(
+    test_data |> select(patient_id, all_of(outcome_var)),
+    final_fit |> predict(test_data)
+  )
+
+# Calculate performance metrics
+performance <- predictions |>
+  metrics(truth = !!sym(outcome_var), estimate = .pred_class, High)
+
+# Save results
+saveRDS(final_fit, "data/classification_model.rds")
+saveRDS(performance, "data/classification_performance.rds")
+saveRDS(predictions, "data/classification_predictions.rds")
+
+cat("Classification model training complete.\n")
+print(performance)
+```
+
+## Results
+
+### Hours Per Year (HPY)
+
+### High Utilization Tier (HUT)
+
+## Appendix
+
+### Utilization Summary and Pareto Analysis
+
+```{r util_class, eval=FALSE}
+# Step 4: Summarize utilization by class and output as both PNG and CSV
+
+library(dplyr)
+library(scales)
+library(gt)
+
+if (!file.exists("data/features_90d_12m_util.rds")) {
+  stop("File 'data/features_90d_12m_util.rds' not found. Run feature engineering first.")
+}
+
+utilization_summary <- readRDS("data/features_90d_12m_util.rds")
+
+# Summarize + total row
+util_class_summary <- utilization_summary |>
+  group_by(util_class) |>
+  summarise(
+    n_patients   = n(),
+    total_hours  = sum(n_hours),
+    total_visits = sum(n_visits),
+    .groups = "drop"
+  ) |>
+  mutate(
+    pct_patients = n_patients / sum(n_patients),
+    pct_hours    = total_hours / sum(total_hours),
+    pct_visits   = total_visits / sum(total_visits)
+  ) |>
+  bind_rows(
+    summarise(
+      utilization_summary,
+      util_class     = "Total",
+      n_patients     = n(),
+      total_hours    = sum(n_hours),
+      total_visits   = sum(n_visits),
+      pct_patients   = 1,
+      pct_hours      = 1,
+      pct_visits     = 1
+    )
+  ) |>
+  mutate(
+    patients_n_pct = sprintf("%s (%.1f)",
+                             formatC(n_patients,
+                                     format = "f",
+                                     big.mark = " ",
+                                     digits = 0),
+                             100 * pct_patients),
+    visits_n_pct   = sprintf("%s (%.1f)",
+                             formatC(total_visits,
+                                     format = "f",
+                                     big.mark = " ",
+                                     digits = 0),
+                             100 * pct_visits),
+    hours_n_pct    = sprintf("%s (%.1f)",
+                             formatC(total_hours,
+                                     format = "f",
+                                     big.mark = " ",
+                                     digits = 0),
+                             100 * pct_hours)
+  )
+
+# Format table
+gt_table <- util_class_summary |>
+  select(util_class, patients_n_pct, visits_n_pct, hours_n_pct) |>
+  gt() |>
+  cols_align(
+    align = "left",
+    columns = c(patients_n_pct, visits_n_pct, hours_n_pct)
+  ) |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(rows = util_class == "Total")
+  ) |>
+  cols_label(
+    util_class      = "Utilization Class",
+    patients_n_pct  = "Patients, n (%)",
+    visits_n_pct    = "Visits, n (%)",
+    hours_n_pct     = "Hours, n (%)"
+  ) |>
+  tab_header(
+    title = "Schedule Share by Utilization Class"
+  ) |>
+  tab_options(
+    table.font.size = px(12)
+  )
+
+# Save table
+gtsave(gt_table, "data/utilization_summary.png")
+write.csv(util_class_summary, "data/utilization_summary.csv", row.names = FALSE)
+```
+
+![](data/utilization_summary.png)
+
+```{r pareto, eval=FALSE, echo=FALSE}
+# Step 5: Generate and save Pareto plot of utilization
+
+library(ggplot2)
+library(scales)
+library(dplyr)
+
+if (!file.exists("data/features_90d_12m_util.rds")) {
+  stop("File 'data/features_90d_12m_util.rds' not found. Run feature engineering first.")
+}
+
+utilization_summary <- readRDS("data/features_90d_12m_util.rds")
+
+# Prep data
+n_patients <- nrow(utilization_summary)
+
+patient_pareto <- utilization_summary |>
+    arrange(desc(n_hours)) |>
+    mutate(
+        pct_patients = row_number() / n_patients,
+        cum_hours    = cumsum(n_hours),
+        pct_hours    = cum_hours / sum(n_hours),
+        segment      = if_else(pct_hours < 0.80, "below_80", "above_80")
+    )
+
+cutoff <- patient_pareto |>
+    filter(pct_hours >= 0.80) |>
+    slice_head(n = 1)
+
+# Plot
+pareto_plot <- ggplot(patient_pareto, aes(x = pct_patients, y = pct_hours)) +
+    # Shaded red area
+    geom_area(
+        data = subset(patient_pareto, segment == "below_80"),
+        fill = "firebrick", alpha = 0.15
+    ) +
+    # Red line
+    geom_line(
+        data = subset(patient_pareto, segment == "below_80"),
+        color = "firebrick", size = 1.2
+    ) +
+    # Green line
+    geom_line(
+        data = subset(patient_pareto, segment == "above_80"),
+        color = "darkgreen", size = 1.2
+    ) +
+    # Reference lines
+    geom_hline(yintercept = 0.80, linetype = "dashed", color = "gray30") +
+    geom_vline(xintercept = cutoff$pct_patients, linetype = "dotted", color = "black") +
+    # Label below horizontal line
+    annotate(
+        "text",
+        x = cutoff$pct_patients + 0.05,
+        y = 0.7,
+        label = sprintf("Top %.1f%% of patients = 80%% of hours", 100 * cutoff$pct_patients),
+        hjust = 0, vjust = -0.5, size = 4, color = "black"
+    ) +
+    # Axis formatting
+    scale_x_continuous(labels = percent_format(accuracy = 1)) +
+    scale_y_continuous(labels = percent_format(accuracy = 1)) +
+    labs(
+        title = "Cumulative Share of Hours by % of Patients",
+        x = "% of Patients (Ranked by Hours)",
+        y = "Cumulative % of Total Hours"
+    ) +
+    theme_minimal() +
+    coord_fixed()
+
+# Save
+ggsave("data/utilization_pareto.png", pareto_plot, dpi = 300)
+```
+
+![](data/utilization_pareto.png)
+
+### Utilization Feature Engineering Function
+
+```{r appendix_engineer, echo=TRUE}
+# The following script is included for transparency and reproducibility.
+# It defines the engineer_utilization() function used above.
+
+{=include} "scripts/engineer_utilization.R"
+```
+
+## Session Info
+
+```{r session_info, echo=TRUE}
+# Print session info and renv status for reproducibility
+sessionInfo()
+renv::status()
+```

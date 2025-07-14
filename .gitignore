@@ -1,0 +1,57 @@
+# R and RStudio
+.Rhistory
+.RData
+.Rproj.user/
+.Ruserdata
+.Rproj.user
+.Rapp.history
+.Rapp.history
+.Renviron
+.Rprofile
+.Rbuildignore
+
+# Quarto and knitr
+*.nb.html
+*.utf8.md
+*.knit.md
+*.log
+
+# renv
+renv/library/
+renv/staging/
+renv/python/
+renv.lock.backup
+
+# Sensitive raw data and generated files
+/secure/
+/data/*.rds
+/data/*.csv
+*.tsv
+*.sav
+*.dta
+*.xlsx
+*.xls
+*.feather
+*.parquet
+*.sas7bdat
+*.iml
+*.bak
+*.tmp
+
+# OS-specific
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Icon?
+
+# VS Code
+.vscode/
+
+# Python (if any)
+__pycache__/
+*.pyc
+
+# Misc
+*.swp
+*.swo
+*~ 
