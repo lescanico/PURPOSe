@@ -545,26 +545,23 @@ if (!file.exists("data/visits_clean.rds")) {
 }
 
 # Ensure output directory exists
-if (!dir.exists("data")) dir.create("data", recursive = TRUE)
+if (!dir.exists("data/mod")) dir.create("data/mod", recursive = TRUE)
 
-visits_clean <- readRDS("data/visits_clean.rds") |>
-  select(
-    -bmi
-  )
+visits_clean <- readRDS("data/visits_clean.rds")
 
 features <- engineer_utilization(
   visits_data = visits_clean,
   id_var = "patient_id",
-  demographic_vars = c("age", "sex", "race"),
-  visit_vars = c("length", "status", "type"),
-  observed_days = 90,      # 90-day observation window
-  prediction_months = 12,  # 12-month prediction horizon
-  output_path = "data/features_90d_12m.rds"  # This will save all outputs to data/
+  demographic_vars = c("age", "sex", "race", "is_hispanic", "marital_status", "religion", "zip3"),
+  visit_vars = c("length", "status", "type", "provider_type", "los", "payer", 
+                 "copay_col", "copay_due", "prepay_col", "prepay_due", 
+                 "portal_engagement", "is_portal_active", "is_tele"),
+  diagnosis_var = "diagnosis",
+  medications_var = "medications",
+  observed_days = 90,
+  prediction_months = 12,
+  output_path = "data/mod/90d_12m.rds"
 )
-
-visits_feat <- features$visits_feat
-patients_feat <- features$patients_feat
-utilization_summary <- features$utilization_summary
 ```
 
 ### Data Modeling
