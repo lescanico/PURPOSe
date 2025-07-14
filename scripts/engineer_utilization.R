@@ -1,3 +1,81 @@
+#' Helper function to extract top significant features from regression results
+#' @param feature_importance_preview output from calculate_feature_importance_preview
+#' @param outcome_name specific outcome to analyze (if NULL, uses first available)
+#' @param top_n number of top features to return (default: 10)
+#' @param significance_level p-value threshold (default: 0.05)
+#' @return data.frame with top significant features
+extract_top_features <- function(feature_importance_preview, outcome_name = NULL, top_n = 10, significance_level = 0.05) {
+  if (is.null(feature_importance_preview$regression_results)) {
+    message("No regression results available")
+    return(NULL)
+  }
+  
+  # Use first outcome if none specified
+  if (is.null(outcome_name)) {
+    outcome_name <- names(feature_importance_preview$regression_results)[1]
+  }
+  
+  if (!outcome_name %in% names(feature_importance_preview$regression_results)) {
+    message("Outcome '", outcome_name, "' not found in regression results")
+    return(NULL)
+  }
+  
+  results <- feature_importance_preview$regression_results[[outcome_name]]
+  
+  # Filter by significance and sort by absolute coefficient
+  significant_features <- results[results$p_value < significance_level, ]
+  significant_features <- significant_features[order(significant_features$abs_coefficient, decreasing = TRUE), ]
+  
+  # Return top N features
+  return(significant_features[1:min(top_n, nrow(significant_features)), ])
+}
+
+#' Helper function to print regression summary in readable format
+#' @param feature_importance_preview output from calculate_feature_importance_preview
+#' @param outcome_name specific outcome to analyze (if NULL, uses first available)
+#' @param top_n number of top features to show (default: 10)
+print_regression_summary <- function(feature_importance_preview, outcome_name = NULL, top_n = 10) {
+  if (is.null(feature_importance_preview$regression_results)) {
+    message("No regression results available")
+    return(NULL)
+  }
+  
+  # Use first outcome if none specified
+  if (is.null(outcome_name)) {
+    outcome_name <- names(feature_importance_preview$regression_results)[1]
+  }
+  
+  if (!outcome_name %in% names(feature_importance_preview$regression_results)) {
+    message("Outcome '", outcome_name, "' not found in regression results")
+    return(NULL)
+  }
+  
+  results <- feature_importance_preview$regression_results[[outcome_name]]
+  
+  cat("=== LINEAR REGRESSION RESULTS FOR", outcome_name, "===\n")
+  cat("Total features analyzed:", nrow(results), "\n")
+  cat("Significant features (p < 0.05):", sum(results$significant), "\n")
+  cat("Significant features (p < 0.01):", sum(results$p_value < 0.01), "\n")
+  cat("Significant features (p < 0.001):", sum(results$p_value < 0.001), "\n\n")
+  
+  # Show top features by absolute coefficient
+  top_features <- results[order(results$abs_coefficient, decreasing = TRUE), ][1:top_n, ]
+  
+  cat("TOP", top_n, "FEATURES BY ABSOLUTE COEFFICIENT:\n")
+  cat("Feature", "Coefficient", "Std.Error", "t-value", "p-value", "Significant\n", sep = "\t")
+  cat("-------", "----------", "---------", "-------", "-------", "-----------\n", sep = "\t")
+  
+  for (i in 1:nrow(top_features)) {
+    feat <- top_features[i, ]
+    sig_mark <- ifelse(feat$significant, "*", "")
+    cat(sprintf("%-30s %8.3f %9.3f %7.2f %7.3f %s\n", 
+                feat$feature, feat$coefficient, feat$std_error, 
+                feat$t_value, feat$p_value, sig_mark))
+  }
+  
+  cat("\n* = significant at p < 0.05\n")
+}
+
 # Load required packages with error handling
 required_packages <- c("dplyr", "lubridate", "stringr", "timeDate", "data.table")
 
@@ -385,54 +463,231 @@ create_utilization_summary <- function(visits_data, id_var) {
   return(utilization_summary)
 }
 
-#' Calculate basic feature importance preview
+#' Calculate comprehensive feature importance preview
 #' @param patients_feat data.table with patient features
-#' @return list with correlation matrix and feature importance summary
+#' @return list with multiple feature importance metrics
 calculate_feature_importance_preview <- function(patients_feat) {
   if (nrow(patients_feat) < 10) {
     message("Insufficient data for feature importance preview (need at least 10 patients)")
     return(NULL)
   }
   
-  # Identify key outcome and feature columns
+  # Identify outcome and feature columns (more comprehensive)
   outcome_cols <- grep("future_", names(patients_feat), value = TRUE)
-  feature_cols <- grep("_mean$|_sum$|_count$|n_visits|n_days_active", names(patients_feat), value = TRUE)
+  tracking_vars <- c("actual_followup_days", "expected_followup_days", "followup_complete", 
+                     "followup_completeness_ratio", "prediction_weight", "single_visit_flag", "same_day_visits_flag")
+  
+  # Include ALL features, not just specific patterns
+  feature_cols <- setdiff(names(patients_feat), c("patient_id", outcome_cols, tracking_vars))
+  
+  message("Outcome columns found: ", paste(outcome_cols, collapse = ", "))
+  message("Feature columns found: ", length(feature_cols), " features")
+  
+  message("Feature importance analysis:")
+  message("  - Outcomes found: ", paste(outcome_cols, collapse = ", "))
+  message("  - Features found: ", length(feature_cols))
+  message("  - Total patients: ", nrow(patients_feat))
   
   if (length(outcome_cols) == 0 || length(feature_cols) == 0) {
-    message("No outcome or feature columns found for correlation analysis")
+    message("No outcome or feature columns found for analysis")
     return(NULL)
   }
   
-  # Select columns for correlation analysis
-  analysis_cols <- c(outcome_cols, feature_cols)
-  analysis_data <- patients_feat[, analysis_cols, with = FALSE]
+  # Select numeric columns for analysis
+  analysis_data <- patients_feat[, c(feature_cols, outcome_cols), with = FALSE]
   
-  # Remove non-numeric columns
   numeric_cols <- sapply(analysis_data, is.numeric)
   analysis_data <- analysis_data[, names(analysis_data)[numeric_cols], with = FALSE]
   
   if (ncol(analysis_data) < 2) {
-    message("Insufficient numeric columns for correlation analysis")
+    message("Insufficient numeric columns for analysis")
     return(NULL)
   }
   
-  # Calculate correlation matrix
-  correlation_matrix <- cor(analysis_data, use = "complete.obs")
+  # Check which outcomes made it into the analysis data
+  analysis_outcomes <- intersect(outcome_cols, names(analysis_data))
   
-  # Find top correlations with outcomes
+  # 1. Enhanced Correlation Analysis
+  correlation_matrix <- cor(analysis_data, use = "complete.obs")
   outcome_correlations <- list()
-  for (outcome in outcome_cols) {
+  
+  # Check if outcomes are in the correlation matrix
+  outcomes_in_matrix <- intersect(analysis_outcomes, names(correlation_matrix))
+  if (length(outcomes_in_matrix) == 0) {
+    warning("No outcomes found in correlation matrix. Check data structure.")
+  }
+  
+  # Ensure correlation matrix has proper names
+  if (is.null(colnames(correlation_matrix)) || is.null(rownames(correlation_matrix))) {
+    warning("Correlation matrix missing row or column names. This may cause issues with feature identification.")
+  }
+  
+  for (outcome in analysis_outcomes) {
     if (outcome %in% names(correlation_matrix)) {
+      # Get correlations with this outcome
       correlations <- correlation_matrix[outcome, ]
+      
+      # Remove self-correlation, NA values, and other outcomes
       correlations <- correlations[!is.na(correlations) & correlations != 1]
-      top_correlations <- sort(abs(correlations), decreasing = TRUE)[1:5]
-      outcome_correlations[[outcome]] <- top_correlations
+      # Only keep correlations with feature variables (not other outcomes)
+      feature_correlations <- correlations[names(correlations) %in% feature_vars]
+      
+      # Sort by absolute value and get top 10
+      correlations_abs <- abs(feature_correlations)
+      top_indices <- order(correlations_abs, decreasing = TRUE)[1:min(10, length(correlations_abs))]
+      top_correlations <- feature_correlations[top_indices]
+      
+      # Ensure we preserve the feature names and have valid data
+      if (length(top_correlations) > 0 && !is.null(names(top_correlations))) {
+        outcome_correlations[[outcome]] <- top_correlations
+      }
+    }
+  }
+  
+  # 2. Variance Analysis
+  feature_vars <- setdiff(names(analysis_data), analysis_outcomes)
+  variances <- sapply(analysis_data[, feature_vars, with = FALSE], var, na.rm = TRUE)
+  top_variance_features <- sort(variances, decreasing = TRUE)[1:10]
+  
+  # 3. Simple Linear Regression Analysis (NEW)
+  regression_results <- list()
+  for (outcome in analysis_outcomes) {
+    if (outcome %in% names(analysis_data)) {
+      # Prepare data for regression (remove rows with missing outcome)
+      reg_data <- analysis_data[!is.na(analysis_data[[outcome]]), ]
+      
+      if (nrow(reg_data) > 10) {
+        # Get top features by correlation for regression (use more features)
+        outcome_correlations <- abs(correlation_matrix[outcome, feature_vars])
+        # Use top 20 features or all features if fewer than 20
+        n_features_to_use <- min(20, length(feature_vars))
+        top_features <- names(sort(outcome_correlations, decreasing = TRUE)[1:n_features_to_use])
+        
+        # Create simple formula with top features
+        feature_formula <- paste(top_features, collapse = " + ")
+        formula_str <- paste(outcome, "~", feature_formula)
+        
+        message("Fitting regression for ", outcome, " with ", length(top_features), " features")
+        
+        tryCatch({
+          # Fit simple linear regression
+          model <- lm(as.formula(formula_str), data = reg_data)
+          
+          # Extract coefficients and p-values
+          coef_summary <- summary(model)$coefficients
+          
+          # Create results data frame
+          results_df <- data.frame(
+            feature = rownames(coef_summary),
+            coefficient = coef_summary[, "Estimate"],
+            std_error = coef_summary[, "Std. Error"],
+            t_value = coef_summary[, "t value"],
+            p_value = coef_summary[, "Pr(>|t|)"],
+            significant = coef_summary[, "Pr(>|t|)"] < 0.05
+          )
+          
+          # Sort by absolute coefficient value (excluding intercept)
+          results_df <- results_df[results_df$feature != "(Intercept)", ]
+          results_df$abs_coefficient <- abs(results_df$coefficient)
+          results_df <- results_df[order(results_df$abs_coefficient, decreasing = TRUE), ]
+          
+          # Keep all features (up to 10)
+          regression_results[[outcome]] <- results_df
+          
+          message("Regression successful for ", outcome, ": ", nrow(results_df), " features analyzed")
+          
+        }, error = function(e) {
+          message("Regression analysis failed for ", outcome, ": ", e$message)
+          # Try with just top 10 features if it fails
+          if (length(top_features) > 10) {
+            message("Trying with top 10 features only...")
+            top_features_reduced <- top_features[1:10]
+            feature_formula_reduced <- paste(top_features_reduced, collapse = " + ")
+            formula_str_reduced <- paste(outcome, "~", feature_formula_reduced)
+            
+            tryCatch({
+              model_reduced <- lm(as.formula(formula_str_reduced), data = reg_data)
+              coef_summary_reduced <- summary(model_reduced)$coefficients
+              
+              results_df_reduced <- data.frame(
+                feature = rownames(coef_summary_reduced),
+                coefficient = coef_summary_reduced[, "Estimate"],
+                std_error = coef_summary_reduced[, "Std. Error"],
+                t_value = coef_summary_reduced[, "t value"],
+                p_value = coef_summary_reduced[, "Pr(>|t|)"],
+                significant = coef_summary_reduced[, "Pr(>|t|)"] < 0.05
+              )
+              
+              results_df_reduced <- results_df_reduced[results_df_reduced$feature != "(Intercept)", ]
+              results_df_reduced$abs_coefficient <- abs(results_df_reduced$coefficient)
+              results_df_reduced <- results_df_reduced[order(results_df_reduced$abs_coefficient, decreasing = TRUE), ]
+              
+              regression_results[[outcome]] <- results_df_reduced
+              message("Reduced regression successful for ", outcome)
+              
+            }, error = function(e2) {
+              message("Reduced regression also failed for ", outcome, ": ", e2$message)
+            })
+          }
+        })
+      } else {
+        message("Insufficient data for regression analysis of ", outcome, " (need > 10 rows)")
+      }
+    }
+  }
+  
+  # 4. Feature Categories Analysis
+  feature_categories <- list(
+    visit_patterns = grep("n_visits|n_days_active|mean_gap|max_gap", feature_vars, value = TRUE),
+    timing_patterns = grep("pct_|weekday|time_bin", feature_vars, value = TRUE),
+    clinical_patterns = grep("diagnosis|medication|provider", feature_vars, value = TRUE),
+    financial_patterns = grep("copay|prepay|payer", feature_vars, value = TRUE),
+    demographic_patterns = grep("age|sex|race|marital", feature_vars, value = TRUE)
+  )
+  
+  # Calculate average importance by category
+  category_importance <- list()
+  for (outcome in analysis_outcomes) {
+    if (outcome %in% names(correlation_matrix)) {
+      category_importance[[outcome]] <- list()
+      for (cat_name in names(feature_categories)) {
+        cat_features <- feature_categories[[cat_name]]
+        if (length(cat_features) > 0) {
+          cat_correlations <- abs(correlation_matrix[outcome, cat_features])
+          category_importance[[outcome]][[cat_name]] <- mean(cat_correlations, na.rm = TRUE)
+        }
+      }
+    }
+  }
+  
+  # 5. Feature Ranking by Multiple Metrics
+  feature_rankings <- list()
+  for (outcome in analysis_outcomes) {
+    if (outcome %in% names(analysis_data)) {
+      # Combine correlation and variance metrics
+      cor_scores <- abs(correlation_matrix[outcome, feature_vars])
+      var_scores <- variances[feature_vars] / max(variances, na.rm = TRUE)
+      
+      # Create composite score (normalized correlation + variance)
+      composite_scores <- (cor_scores + var_scores) / 2
+      feature_rankings[[outcome]] <- sort(composite_scores, decreasing = TRUE)[1:10]
     }
   }
   
   return(list(
     correlation_matrix = correlation_matrix,
-    outcome_correlations = outcome_correlations
+    outcome_correlations = outcome_correlations,
+    top_variance_features = top_variance_features,
+    regression_results = regression_results,  # NEW: Actual statistical modeling results
+    feature_rankings = feature_rankings,
+    feature_categories = feature_categories,
+    category_importance = category_importance,
+    analysis_summary = list(
+      total_features = length(feature_vars),
+      total_outcomes = length(analysis_outcomes),
+      features_analyzed = ncol(analysis_data),
+      regression_models_fitted = length(regression_results)
+    )
   ))
 }
 
@@ -635,7 +890,9 @@ clean_features <- function(data, id_var, demographic_vars,
 
 #' Engineer Utilization Features for Healthcare Prediction
 #'
-#' Creates features for predictive modeling with configurable static and dynamic variables.
+#' Creates comprehensive features for predictive modeling of healthcare utilization with configurable 
+#' static and dynamic variables. Includes calendar features, visit patterns, clinical indicators, 
+#' and advanced feature importance analysis.
 #'
 #' @param visits_data Data frame of patient visits
 #' @param id_var Character or factor variable identifying patients
@@ -670,7 +927,7 @@ clean_features <- function(data, id_var, demographic_vars,
 #'   - visits_feat: data.table of all visits with engineered calendar features
 #'   - patients_feat: data.table of patient-level features (cleaned)
 #'   - utilization_summary: data.table of patient-level utilization summaries
-#'   - feature_importance_preview: list with correlation matrix and top correlations
+#'   - feature_importance_preview: list with correlation analysis, regression modeling (20 features), and feature rankings
 #'   - data_quality_summary: list of data quality metrics
 #'   - feature_cleaning_summary: list of excluded features and summary stats
 #' @examples
@@ -1159,16 +1416,29 @@ engineer_utilization <- function(
     future_visits_col <- paste0("future_visits_", prediction_months, "m")
     future_hours_col <- paste0("future_hours_", prediction_months, "m")
     
+    # Create dynamic time period text
+    time_period_text <- paste0("in the next ", prediction_months, " month", ifelse(prediction_months == 1, "", "s"))
+    
     if (future_visits_col %in% names(patients_feat)) {
-      message("  - Patients with future visits: ", sum(patients_feat[[future_visits_col]] > 0))
-      message("  - Average future visits: ", round(mean(patients_feat[[future_visits_col]], 2)))
-      message("  - Median future visits: ", round(median(patients_feat[[future_visits_col]], 2)))
+      patients_with_visits <- patients_feat[[future_visits_col]] > 0
+      message("  - Patients with visits ", time_period_text, ": ", sum(patients_with_visits), " (", round(100 * mean(patients_with_visits), 1), "%)")
+      message("  - Average visits ", time_period_text, " (all patients): ", round(mean(patients_feat[[future_visits_col]], 2)))
+      message("  - Median visits ", time_period_text, " (all patients): ", round(median(patients_feat[[future_visits_col]], 2)))
+      if (sum(patients_with_visits) > 0) {
+        message("  - Average visits ", time_period_text, " (patients with visits only): ", round(mean(patients_feat[[future_visits_col]][patients_with_visits], 2)))
+        message("  - Median visits ", time_period_text, " (patients with visits only): ", round(median(patients_feat[[future_visits_col]][patients_with_visits], 2)))
+      }
     }
     
     if (future_hours_col %in% names(patients_feat)) {
-      message("  - Patients with future hours: ", sum(patients_feat[[future_hours_col]] > 0))
-      message("  - Average future hours: ", round(mean(patients_feat[[future_hours_col]], 2)))
-      message("  - Median future hours: ", round(median(patients_feat[[future_hours_col]], 2)))
+      patients_with_hours <- patients_feat[[future_hours_col]] > 0
+      message("  - Patients with hours ", time_period_text, ": ", sum(patients_with_hours), " (", round(100 * mean(patients_with_hours), 1), "%)")
+      message("  - Average hours ", time_period_text, " (all patients): ", round(mean(patients_feat[[future_hours_col]], 2)))
+      message("  - Median hours ", time_period_text, " (all patients): ", round(median(patients_feat[[future_hours_col]], 2)))
+      if (sum(patients_with_hours) > 0) {
+        message("  - Average hours ", time_period_text, " (patients with hours only): ", round(mean(patients_feat[[future_hours_col]][patients_with_hours], 2)))
+        message("  - Median hours ", time_period_text, " (patients with hours only): ", round(median(patients_feat[[future_hours_col]][patients_with_hours], 2)))
+      }
     }
     
     # Follow-up completeness summary
@@ -1192,15 +1462,51 @@ engineer_utilization <- function(
     # Feature importance preview
     if (!is.null(feature_importance_preview)) {
       message("\n=== FEATURE IMPORTANCE PREVIEW ===")
-      for (outcome_name in names(feature_importance_preview$outcome_correlations)) {
+      
+      # Show correlation results
+      # Only show correlations for actual outcome variables (those starting with "future_")
+      outcome_vars_to_show <- grep("^future_", names(feature_importance_preview$outcome_correlations), value = TRUE)
+      
+      for (outcome_name in outcome_vars_to_show) {
         message("Top correlations with ", outcome_name, ":")
         correlations <- feature_importance_preview$outcome_correlations[[outcome_name]]
-        for (i in seq_along(correlations)) {
-          feature_name <- names(correlations)[i]
-          correlation_value <- correlations[i]
-          message("  ", i, ". ", feature_name, ": ", round(correlation_value, 3))
+        if (length(correlations) > 0 && !is.null(names(correlations))) {
+          for (i in seq_along(correlations)) {
+            feature_name <- names(correlations)[i]
+            correlation_value <- correlations[i]
+            if (!is.null(feature_name) && !is.na(feature_name)) {
+              message("  ", i, ". ", feature_name, ": ", round(correlation_value, 3))
+            } else {
+              message("  ", i, ". [unnamed feature]: ", round(correlation_value, 3))
+            }
+          }
+        } else {
+          message("  No correlations found")
         }
         message("")
+      }
+      
+      # Show regression results summary
+      if (!is.null(feature_importance_preview$regression_results)) {
+        message("=== REGRESSION ANALYSIS SUMMARY ===")
+        for (outcome_name in names(feature_importance_preview$regression_results)) {
+          results <- feature_importance_preview$regression_results[[outcome_name]]
+          message("  ", outcome_name, ": ", nrow(results), " features analyzed, ", 
+                  sum(results$significant), " significant (p < 0.05)")
+          
+          # Show top 3 significant features
+          significant_features <- results[results$significant, ]
+          if (nrow(significant_features) > 0) {
+            significant_features <- significant_features[order(significant_features$abs_coefficient, decreasing = TRUE), ]
+            message("    Top significant features:")
+            for (i in 1:min(3, nrow(significant_features))) {
+              feat <- significant_features[i, ]
+              message("      ", i, ". ", feat$feature, " (β = ", round(feat$coefficient, 3), 
+                      ", p = ", round(feat$p_value, 3), ")")
+            }
+          }
+          message("")
+        }
       }
     }
     
@@ -1210,6 +1516,14 @@ engineer_utilization <- function(
     message("  - Future dates: ", data_quality_summary$future_dates)
     message("  - Duplicate visits: ", data_quality_summary$duplicate_visits)
     message("  - Date range: ", data_quality_summary$date_range[1], " to ", data_quality_summary$date_range[2])
+    
+    # Feature importance summary
+    if (!is.null(feature_importance_preview)) {
+      message("\n=== FEATURE IMPORTANCE SUMMARY ===")
+      message("  - Correlation analysis: ", length(feature_importance_preview$outcome_correlations), " outcomes analyzed")
+      message("  - Regression analysis: ", length(feature_importance_preview$regression_results), " models fitted")
+      message("  - Feature categories: ", length(feature_importance_preview$feature_categories), " categories identified")
+    }
     
   } else {
     message("\nWarning: No patient features created. Check your data and parameters.")
