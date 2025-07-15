@@ -374,6 +374,11 @@ visits_clean <- visits_clean |>
                     "prepay_col",
                     "prepay_due")),
            ~replace_na(.x, 0)),
+
+    # consolidate copay and prepay
+    pay_col = copay_col + prepay_col,
+    pay_due = copay_due + prepay_due,
+    pay_net = pay_due - pay_col,
     
     # factorize
     across(c(type, status, sex, race,
@@ -522,13 +527,50 @@ visits_clean <- visits_clean |>
   ) |>
   # drop unused factor levels
   mutate(across(where(is.factor), droplevels)) |>
-  # Remove converted vars
-  select(-ethnic_group)
+  # drop intermediate vars
+  select(-c(ethnic_group, copay_col, copay_due, prepay_col, prepay_due, pay_col, pay_due))
 
 # 8. Save the cleaned data
 if (!dir.exists("data")) dir.create("data", recursive = TRUE)
 visits_clean |>
   saveRDS("data/visits_clean.rds")
+```
+
+### NLP-based Diagnosis and Medication Classification (Python via reticulate)
+
+```{r nlp_classification, eval=FALSE}
+# Step 2.5: Use Python NLP to classify diagnoses and medications
+# - Calls a Python script via reticulate to add logical columns for DSM-5 classes and psychotropic groups
+# - Saves updated visits_clean for downstream feature engineering
+
+# Ensure reticulate is installed and loaded
+if (!requireNamespace("reticulate", quietly = TRUE)) {
+  install.packages("reticulate", repos = "https://cloud.r-project.org")
+}
+library(reticulate)
+
+# Tell reticulate to use your Python 3.13 installation
+reticulate::use_python("C:/Users/lescanon/AppData/Local/Programs/Python/Python313/python.exe", required = TRUE)
+
+# Load cleaned data
+visits_clean <- readRDS("data/visits_clean.rds")
+
+# Convert to data.frame for reticulate compatibility
+visits_clean_df <- as.data.frame(visits_clean)
+
+# Source the Python script (assumes classify_nlp.py exists in project root)
+# The script should define a function: classify_visits(df) -> returns df with new logical columns
+source_python("scripts/classify_nlp.py")
+
+# Call the Python function
+enriched_visits <- classify_visits(visits_clean_df)
+
+# Convert back to tibble (if needed)
+library(tibble)
+visits_clean <- as_tibble(enriched_visits)
+
+# Save the updated data for downstream use
+saveRDS(visits_clean, "data/visits_clean.rds")
 ```
 
 ### Feature Engineering
@@ -538,29 +580,33 @@ visits_clean |>
 # - Loads cleaned data and applies feature engineering script
 # - Outputs engineered features for modeling
 
+# Load feature engineering script
 source("scripts/engineer_utilization.R")
 
-if (!file.exists("data/visits_clean.rds")) {
-  stop("File 'data/visits_clean.rds' not found. Run the cleaning step first.")
-}
-
-# Ensure output directory exists
-if (!dir.exists("data/mod")) dir.create("data/mod", recursive = TRUE)
-
+# Load cleaned data
 visits_clean <- readRDS("data/visits_clean.rds")
 
+# Run feature engineering
 features <- engineer_utilization(
   visits_data = visits_clean,
   id_var = "patient_id",
-  demographic_vars = c("age", "sex", "race", "is_hispanic", "marital_status", "religion", "zip3"),
-  visit_vars = c("length", "status", "type", "provider_type", "los", "payer", 
-                 "copay_col", "copay_due", "prepay_col", "prepay_due", 
-                 "portal_engagement", "is_portal_active", "is_tele"),
+  static_vars = c("age", "sex", "race", "is_hispanic", "marital_status", "religion", "zip3"),
+  dynamic_vars = c("payer", "pay_net", "portal_engagement", "is_portal_active", "is_tele"),
   diagnosis_var = "diagnosis",
   medications_var = "medications",
   observed_days = 90,
   prediction_months = 12,
-  output_path = "data/mod/90d_12m.rds"
+  require_complete_followup = FALSE,
+  use_followup_weights = TRUE,
+  output_path = "data/model_90d_12m.rds",
+  filter_var = NULL,
+  filter_levels = NULL,
+  missing_threshold = 0.1,
+  variance_threshold = 0.01,
+  near_zero_var_threshold = 0.95,
+  correlation_threshold = 0.95,
+  log_file = "data/feature_engineering.log",
+  verbose = TRUE
 )
 ```
 
@@ -577,11 +623,11 @@ library(tidymodels)
 library(dplyr)
 library(readr)
 
-if (!file.exists("data/features_90d_12m_patients.rds")) {
-  stop("File 'data/features_90d_12m_patients.rds' not found. Run feature engineering first.")
+if (!file.exists("data/model_90d_12m_patients.rds")) {
+  stop("File 'data/model_90d_12m_patients.rds' not found. Run feature engineering first.")
 }
 
-patients_feat <- readRDS("data/features_90d_12m_patients.rds")
+patients_feat <- readRDS("data/model_90d_12m_patients.rds")
 
 # Add decile column for stratification
 patients_feat <- patients_feat |>
