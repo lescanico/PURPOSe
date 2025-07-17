@@ -401,133 +401,110 @@ visits_clean <- visits_clean |>
 visits_clean <- visits_clean |>
   mutate(
     
-    
+    # Ethnicity binary
     is_hispanic = coalesce(ethnic_group == "Hispanic Latino", FALSE),
     
-    
+    # Marital status collapsing
     marital_status = factor(case_when(
-        marital_status %in% c("Domestic Partner",
-                              "Partner", "Other")     ~ "Other/Unknown",
-        marital_status %in% c("Single", "Married",
-                              "Divorced", "Separated",
-                              "Widowed")              ~ marital_status,
-        TRUE ~ "Other/Unknown"
-      )),
+      marital_status %in% c("Domestic Partner", "Partner", "Other") ~ "Other/Unknown",
+      marital_status %in% c("Single", "Married", "Divorced", "Separated", "Widowed") ~ marital_status,
+      TRUE ~ "Other/Unknown"
+    )),
     
-    
+    # Collapse visit types
     type = type |>
       fct_collapse(
         `Follow up` = c(
-          "ESTAB PT BRIEF","ESTAB PT MODERATE","ESTAB PT SHORT",
-          "RETURN PATIENT VISIT","ESTAB PT COMPREHENSIVE",
-          "RPV TELEHEALTH","COBALT TELEHEALTH RETURN",
-          "TELEHEALTH VIDEO RPV","TELEMEDICINE RETURN PATIENT"
+          "ESTAB PT BRIEF", "ESTAB PT MODERATE", "ESTAB PT SHORT",
+          "RETURN PATIENT VISIT", "ESTAB PT COMPREHENSIVE",
+          "RPV TELEHEALTH", "COBALT TELEHEALTH RETURN",
+          "TELEHEALTH VIDEO RPV", "TELEMEDICINE RETURN PATIENT"
         ),
-        New         = c(
-          "NEW PT LONG","NEW PT SHORT","NEW PATIENT VISIT",
-          "NPV TELEHEALTH","COBALT TELEHEALTH NEW",
+        New = c(
+          "NEW PT LONG", "NEW PT SHORT", "NEW PATIENT VISIT",
+          "NPV TELEHEALTH", "COBALT TELEHEALTH NEW",
           "TELEHEALTH VIDEO NPV"
         ),
         other_level = "Other"
       ) |>
       fct_na_value_to_level("Other"),
     
-
+    # Collapse race
     race = race |>
       fct_lump(n = 3, other_level = "Other/Unknown") |>
       fct_na_value_to_level("Other/Unknown"),
     
-
+    # Collapse religion
     religion = factor(case_when(
-      religion %in% c("No Affiliation Given",
-                      "Agnostic",
-                      "Atheist")                  ~ "No Religion",
-      
-      religion %in% c("Roman Catholic",
-                      "Eastern Catholic")         ~ "Catholic",
-      
-      religion %in% c("Methodist",
-                      "Presbyterian",
-                      "Episcopalian",
-                      "Lutheran",
-                      "Quaker")                   ~ "Mainline Protestant",
-      
-      religion %in% c("Baptist",
-                      "Pentacostal",
-                      "Jehovah's Witness",
-                      "Church of God/Christian",
-                      "African Methodist",
-                      "Protestant",
-                      "Fundamentalist")           ~ "Evangelical/Other Protestant",
-      
-      religion %in% c("Christian",
-                      "Non-Denominational")       ~ "Christian (Generic)",
-      
-      religion %in% c("Church of Jesus Christ 
-                      of Latter-day Saints",
-                      "Mormon")                   ~ "Mormon",
-      
-      religion %in% c("Jewish",
-                      "Muslim/Moslem/Islam",
-                      "Buddhist",
-                      "Hindu")                    ~ religion,
-      TRUE                                        ~ "Other/Unknown"
+      religion %in% c("No Affiliation Given", "Agnostic", "Atheist") ~ "No Religion",
+      religion %in% c("Roman Catholic", "Eastern Catholic") ~ "Catholic",
+      religion %in% c("Methodist", "Presbyterian", "Episcopalian", "Lutheran", "Quaker") ~ "Mainline Protestant",
+      religion %in% c("Baptist", "Pentacostal", "Jehovah's Witness", "Church of God/Christian",
+                      "African Methodist", "Protestant", "Fundamentalist") ~ "Evangelical/Other Protestant",
+      religion %in% c("Christian", "Non-Denominational") ~ "Christian (Generic)",
+      religion %in% c("Church of Jesus Christ of Latter-day Saints", "Mormon") ~ "Mormon",
+      religion %in% c("Jewish", "Muslim/Moslem/Islam", "Buddhist", "Hindu") ~ religion,
+      TRUE ~ "Other/Unknown"
     )),
     
-
+    # Collapse ZIP3
     zip3 = zip3 |>
-      fct_lump(n           = 10,
-               other_level = "Other/Unknown") |>
+      fct_lump(n = 10, other_level = "Other/Unknown") |>
       fct_na_value_to_level("Other/Unknown"),
     
-
+    # Collapse payer
     payer = payer |>
       fct_collapse(
-        BCBS       = c("Blue Cross","Blue Shield"),
-        Medicare   = c("Medicare","Managed Medicare"),
-        Medicaid   = c("Medicaid (MA)","Managed Medicaid"),
-        Commercial = c("Commercial","Managed Care"),
+        BCBS       = c("Blue Cross", "Blue Shield"),
+        Medicare   = c("Medicare", "Managed Medicare"),
+        Medicaid   = c("Medicaid (MA)", "Managed Medicaid"),
+        Commercial = c("Commercial", "Managed Care"),
         `Self Pay` = "Self-Pay",
         other_level = "Other"
       ) |>
       fct_na_value_to_level("Other"),
     
-
+    # Collapse provider type
     provider_type = provider_type |>
       fct_collapse(
-        Attending         = c("Physician","Psychiatrist"),
-        `Resident/Fellow` = c("Resident","Fellow"),
-        NP                = "Nurse Practitioner"              
+        Attending         = c("Physician", "Psychiatrist"),
+        `Resident/Fellow` = c("Resident", "Fellow"),
+        NP                = "Nurse Practitioner"
       ) |>
       fct_na_value_to_level("Other"),
     
-
-    # los → analytic buckets + Other
-    los = los |>
-      fct_collapse(
-        Psych_Eval     = c("90791","90792","90801"),
-        Psych_20min    = "90832",
-        Psych_45min    = "90834",
-        Psych_60min    = "90837",
-        Psych_Other    = c("90804", "90805","90806", "90807",
-                          "90808","90809","90810", "90833",
-                          "90849","90865","90887","90899"),
-        Psych_Crisis   = c("90838","90839","90840"),
-        Family_Tx      = c("90846","90847","90836"),
-        Group_Tx       = c("90853","90885","90889"),
-        Med_Management = "90862",
-        E_M_New        = c("99201","99202","99203","99204","99205","99215R"),
-        E_M_Estab      = c("99211","99212","99213","99214","99215"),
-        Consult        = c("99241","99242","99243","99244","99245"),
-        Other_Services = c("96102","96372","99358","99443","99080"),
-        Substance_Tx   = "H0004",
-        other_level    = "Other"
-        ) |>
+      # Collapse level of service (LOS) codes
+      los = los |> fct_collapse(
+        Psych_Eval = c("90791", "90792", "90801"),
+        Psychotherapy = c(
+          "90832", "90834", "90836", "90837", "90838",
+          "90833", "90804", "90805", "90806", "90807", "90808", "90809", "90810"
+        ),
+        Family_Group_Tx = c("90846", "90847", "90849", "90853"),
+        Med_Management = c(
+          "90862", "99201", "99202", "99203", "99204", "99205",
+          "99211", "99212", "99213", "99214", "99215", "99215R"
+        ),
+        Other_Psych = c(
+          "90785", "90839", "90840", "90885", "90887", "90889", "90899", "90865"
+        ),
+        Other_Medical = c("96102", "96372", "99358", "99443", "99080", "H0004"),
+        Consult = c("99241", "99242", "99243", "99244", "99245"),
+        System_Code = c(
+          "100000", "1030", "1030G", "1030NS",
+          "MDC001", "MED994", "MG1030", "REI002", "SGY102", "SVA",
+          "UPHS10", "UPHS23"
+        ),
+        other_level = "Other"
+      ) |>
       fct_na_value_to_level("Other")
+
   ) |>
-  # drop unused factor levels
+  
+  # Drop unused factor levels
   mutate(across(where(is.factor), droplevels)) |>
-  # drop intermediate vars
+  
+  # Drop intermediate vars
   select(-c(ethnic_group, copay_col, copay_due, prepay_col, prepay_due, pay_col, pay_due))
 
 # 8. Save the cleaned data
@@ -556,22 +533,170 @@ features <- engineer_utilization(
   observed_days = 90,
   prediction_months = 12,
   static_vars = c("age", "sex", "race", "is_hispanic", "marital_status", "religion", "zip3"),
-  dynamic_vars = c("payer", "pay_net", "portal_engagement", "is_portal_active", "is_tele"),
+  dynamic_vars = c("payer", "los", "pay_net", "portal_engagement", "is_portal_active", "is_tele"),
   diagnosis_var = "diagnosis",
   medications_var = "medications",
-  filter_var = NULL,
-  filter_levels = NULL,
+  filter_var = "los",
+  filter_levels = "Med_Management",
   missing_threshold = 0.1,
   variance_threshold = 0.01,
   near_zero_var_threshold = 0.95,
   correlation_threshold = 0.95,
+  pval_filter = 0.05,
   require_complete_followup = FALSE,
   use_followup_weights = TRUE,
-  output_path = "data/90d_12m.rds",
+  output_path = "data/engineered.rds",
   log_file = "data/feature_engineering.log",
   timestamped_files = FALSE,
   verbose = TRUE
 )
+```
+
+## Exploratory Data Analysis (EDA)
+
+```{r eda}
+# Step 4: Utilization summary and Pareto analysis
+
+# Load engineered datasets
+if (!file.exists("data/utilization_summary.rds")) {
+  stop("File 'data/utilization_summary.rds' not found. Run feature engineering first.")
+}
+
+library(dplyr)
+library(scales)
+library(gt)
+library(ggplot2)
+
+engineering_analysis <- readRDS("data/engineering_analysis.rds")
+patients <- readRDS("data/patients_engineered.rds")
+utilization_summary <- readRDS("data/utilization_summary.rds")
+
+# --- Utilization class summary table ---
+utilization_tier_summary <- utilization_summary |>
+  group_by(utilization_tier) |>
+  summarise(
+    n_patients   = n(),
+    total_hours  = sum(n_hours),
+    total_visits = sum(n_visits),
+    .groups = "drop"
+  ) |>
+  mutate(
+    pct_patients = n_patients / sum(n_patients),
+    pct_hours    = total_hours / sum(total_hours),
+    pct_visits   = total_visits / sum(total_visits)
+  ) |>
+  bind_rows(
+    summarise(
+      utilization_summary,
+      utilization_tier     = "Total",
+      n_patients     = n(),
+      total_hours    = sum(n_hours),
+      total_visits   = sum(n_visits),
+      pct_patients   = 1,
+      pct_hours      = 1,
+      pct_visits     = 1
+    )
+  ) |>
+  mutate(
+    patients_n_pct = sprintf("%s (%.1f)",
+                             formatC(n_patients,
+                                     format = "f",
+                                     big.mark = " ",
+                                     digits = 0),
+                             100 * pct_patients),
+    visits_n_pct   = sprintf("%s (%.1f)",
+                             formatC(total_visits,
+                                     format = "f",
+                                     big.mark = " ",
+                                     digits = 0),
+                             100 * pct_visits),
+    hours_n_pct    = sprintf("%s (%.1f)",
+                             formatC(total_hours,
+                                     format = "f",
+                                     big.mark = " ",
+                                     digits = 0),
+                             100 * pct_hours)
+  )
+
+# Format table
+library(gt)
+gt_table <- utilization_tier_summary |>
+  select(utilization_tier, patients_n_pct, visits_n_pct, hours_n_pct) |>
+  gt() |>
+  cols_align(
+    align = "left",
+    columns = c(patients_n_pct, visits_n_pct, hours_n_pct)
+  ) |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(rows = utilization_tier == "Total")
+  ) |>
+  cols_label(
+    utilization_tier      = "Utilization Tier",
+    patients_n_pct  = "Patients, n (%)",
+    visits_n_pct    = "Visits, n (%)",
+    hours_n_pct     = "Hours, n (%)"
+  ) |>
+  tab_header(
+    title = "Schedule Share by Utilization Tier"
+  ) |>
+  tab_options(
+    table.font.size = px(12)
+  )
+
+# Display table inline
+gt_table
+
+# --- Pareto plot ---
+n_patients <- nrow(utilization_summary)
+
+patient_pareto <- utilization_summary |>
+  arrange(desc(n_hours)) |>
+  mutate(
+    pct_patients = row_number() / n_patients,
+    cum_hours    = cumsum(n_hours),
+    pct_hours    = cum_hours / sum(n_hours),
+    segment      = if_else(pct_hours < 0.80, "below_80", "above_80")
+  )
+
+cutoff <- patient_pareto |>
+  filter(pct_hours >= 0.80) |>
+  slice_head(n = 1)
+
+pareto_plot <- ggplot(patient_pareto, aes(x = pct_patients, y = pct_hours)) +
+  geom_area(
+    data = subset(patient_pareto, segment == "below_80"),
+    fill = "firebrick", alpha = 0.15
+  ) +
+  geom_line(
+    data = subset(patient_pareto, segment == "below_80"),
+    color = "firebrick", size = 1.2
+  ) +
+  geom_line(
+    data = subset(patient_pareto, segment == "above_80"),
+    color = "darkgreen", size = 1.2
+  ) +
+  geom_hline(yintercept = 0.80, linetype = "dashed", color = "gray30") +
+  geom_vline(xintercept = cutoff$pct_patients, linetype = "dotted", color = "black") +
+  annotate(
+    "text",
+    x = cutoff$pct_patients + 0.05,
+    y = 0.7,
+    label = sprintf("Top %.1f%% of patients = 80%% of hours", 100 * cutoff$pct_patients),
+    hjust = 0, vjust = -0.5, size = 4, color = "black"
+  ) +
+  scale_x_continuous(labels = percent_format(accuracy = 1)) +
+  scale_y_continuous(labels = percent_format(accuracy = 1)) +
+  labs(
+    title = "Cumulative Share of Hours by % of Patients",
+    x = "% of Patients (Ranked by Hours)",
+    y = "Cumulative % of Total Hours"
+  ) +
+  theme_minimal() +
+  coord_fixed()
+
+# Display plot inline
+print(pareto_plot)
 ```
 
 ### Data Modeling
@@ -579,7 +704,7 @@ features <- engineer_utilization(
 #### Preparation
 
 ```{r prep, eval=FALSE}
-# Step 6: Prepare data for modeling (train/test split)
+# Step 4: Prepare data for modeling (train/test split)
 # - Checks for file existence and provides informative errors
 # - Outputs train/test sets for modeling
 
@@ -587,7 +712,7 @@ library(tidymodels)
 library(dplyr)
 library(readr)
 
-patients_feat <- readRDS("data/patients_90d_12m.rds")
+patients_engineered <- readRDS("data/patients_engineered.rds")
 
 # Add decile column for stratification
 patients_feat <- patients_feat |>
@@ -807,174 +932,6 @@ print(performance)
 ### High Utilization Tier (HUT)
 
 ## Appendix
-
-### Utilization Summary and Pareto Analysis
-
-```{r util_class, eval=FALSE, echo=FALSE}
-# Step 4: Summarize utilization by class and output as both PNG and CSV
-
-library(dplyr)
-library(scales)
-library(gt)
-
-if (!file.exists("data/features_90d_12m_util.rds")) {
-  stop("File 'data/features_90d_12m_util.rds' not found. Run feature engineering first.")
-}
-
-utilization_summary <- readRDS("data/features_90d_12m_util.rds")
-
-# Summarize + total row
-util_class_summary <- utilization_summary |>
-  group_by(util_class) |>
-  summarise(
-    n_patients   = n(),
-    total_hours  = sum(n_hours),
-    total_visits = sum(n_visits),
-    .groups = "drop"
-  ) |>
-  mutate(
-    pct_patients = n_patients / sum(n_patients),
-    pct_hours    = total_hours / sum(total_hours),
-    pct_visits   = total_visits / sum(total_visits)
-  ) |>
-  bind_rows(
-    summarise(
-      utilization_summary,
-      util_class     = "Total",
-      n_patients     = n(),
-      total_hours    = sum(n_hours),
-      total_visits   = sum(n_visits),
-      pct_patients   = 1,
-      pct_hours      = 1,
-      pct_visits     = 1
-    )
-  ) |>
-  mutate(
-    patients_n_pct = sprintf("%s (%.1f)",
-                             formatC(n_patients,
-                                     format = "f",
-                                     big.mark = " ",
-                                     digits = 0),
-                             100 * pct_patients),
-    visits_n_pct   = sprintf("%s (%.1f)",
-                             formatC(total_visits,
-                                     format = "f",
-                                     big.mark = " ",
-                                     digits = 0),
-                             100 * pct_visits),
-    hours_n_pct    = sprintf("%s (%.1f)",
-                             formatC(total_hours,
-                                     format = "f",
-                                     big.mark = " ",
-                                     digits = 0),
-                             100 * pct_hours)
-  )
-
-# Format table
-gt_table <- util_class_summary |>
-  select(util_class, patients_n_pct, visits_n_pct, hours_n_pct) |>
-  gt() |>
-  cols_align(
-    align = "left",
-    columns = c(patients_n_pct, visits_n_pct, hours_n_pct)
-  ) |>
-  tab_style(
-    style = cell_text(weight = "bold"),
-    locations = cells_body(rows = util_class == "Total")
-  ) |>
-  cols_label(
-    util_class      = "Utilization Class",
-    patients_n_pct  = "Patients, n (%)",
-    visits_n_pct    = "Visits, n (%)",
-    hours_n_pct     = "Hours, n (%)"
-  ) |>
-  tab_header(
-    title = "Schedule Share by Utilization Class"
-  ) |>
-  tab_options(
-    table.font.size = px(12)
-  )
-
-# Save table
-gtsave(gt_table, "data/utilization_summary.png")
-write.csv(util_class_summary, "data/utilization_summary.csv", row.names = FALSE)
-```
-
-![](tables/utilization_summary.png)
-
-```{r pareto, eval=FALSE, echo=FALSE}
-# Step 5: Generate and save Pareto plot of utilization
-
-library(ggplot2)
-library(scales)
-library(dplyr)
-
-if (!file.exists("data/features_90d_12m_util.rds")) {
-  stop("File 'data/features_90d_12m_util.rds' not found. Run feature engineering first.")
-}
-
-utilization_summary <- readRDS("data/features_90d_12m_util.rds")
-
-# Prep data
-n_patients <- nrow(utilization_summary)
-
-patient_pareto <- utilization_summary |>
-    arrange(desc(n_hours)) |>
-    mutate(
-        pct_patients = row_number() / n_patients,
-        cum_hours    = cumsum(n_hours),
-        pct_hours    = cum_hours / sum(n_hours),
-        segment      = if_else(pct_hours < 0.80, "below_80", "above_80")
-    )
-
-cutoff <- patient_pareto |>
-    filter(pct_hours >= 0.80) |>
-    slice_head(n = 1)
-
-# Plot
-pareto_plot <- ggplot(patient_pareto, aes(x = pct_patients, y = pct_hours)) +
-    # Shaded red area
-    geom_area(
-        data = subset(patient_pareto, segment == "below_80"),
-        fill = "firebrick", alpha = 0.15
-    ) +
-    # Red line
-    geom_line(
-        data = subset(patient_pareto, segment == "below_80"),
-        color = "firebrick", size = 1.2
-    ) +
-    # Green line
-    geom_line(
-        data = subset(patient_pareto, segment == "above_80"),
-        color = "darkgreen", size = 1.2
-    ) +
-    # Reference lines
-    geom_hline(yintercept = 0.80, linetype = "dashed", color = "gray30") +
-    geom_vline(xintercept = cutoff$pct_patients, linetype = "dotted", color = "black") +
-    # Label below horizontal line
-    annotate(
-        "text",
-        x = cutoff$pct_patients + 0.05,
-        y = 0.7,
-        label = sprintf("Top %.1f%% of patients = 80%% of hours", 100 * cutoff$pct_patients),
-        hjust = 0, vjust = -0.5, size = 4, color = "black"
-    ) +
-    # Axis formatting
-    scale_x_continuous(labels = percent_format(accuracy = 1)) +
-    scale_y_continuous(labels = percent_format(accuracy = 1)) +
-    labs(
-        title = "Cumulative Share of Hours by % of Patients",
-        x = "% of Patients (Ranked by Hours)",
-        y = "Cumulative % of Total Hours"
-    ) +
-    theme_minimal() +
-    coord_fixed()
-
-# Save
-ggsave("figures/utilization_pareto.png", pareto_plot, dpi = 300)
-```
-
-![](figures/utilization_pareto.png)
 
 ### Utilization Feature Engineering Function
 

@@ -213,8 +213,8 @@ calculate_visit_patterns <- function(joined_data, id_var, static_vars, dynamic_v
     for (var in dynamic_vars) {
       if (is.numeric(.SD[[var]])) {
         out[[paste0(var, "_mean")]] <- mean(.SD[[var]], na.rm = TRUE)
+        out[[paste0(var, "_sd")]] <- sd(.SD[[var]], na.rm = TRUE)
         out[[paste0(var, "_sum")]] <- sum(.SD[[var]], na.rm = TRUE)
-        out[[paste0(var, "_count")]] <- sum(!is.na(.SD[[var]]))
       } else {
         var_table <- table(.SD[[var]])
         var_levels <- all_levels[[var]]
@@ -1278,7 +1278,8 @@ engineer_utilization <- function(
   output_path = NULL,
   log_file = NULL,
   timestamped_files = FALSE,
-  verbose = FALSE
+  verbose = FALSE,
+  pval_filter = NULL
 ) {
   # 1. Input Validation
   validated <- validate_engineer_utilization_inputs(visits_data, id_var, static_vars, dynamic_vars, observed_days, prediction_months, diagnosis_var, medications_var, log_file)
@@ -1391,6 +1392,34 @@ engineer_utilization <- function(
   )
   patients_feat <- feature_cleaning_result$cleaned_data
 
+  # --- P-VALUE FILTERING STEP (if requested) ---
+  if (!is.null(pval_filter)) {
+    # Determine the correct outcome name for regression results
+    future_hours_col <- paste0("future_hours_", prediction_months, "m")
+    # Calculate feature analysis if not already done
+    feature_analysis_tmp <- calculate_feature_analysis(patients_feat, verbose = verbose)
+    regression_results <- NULL
+    if (!is.null(feature_analysis_tmp) &&
+        !is.null(feature_analysis_tmp$regression_results) &&
+        future_hours_col %in% names(feature_analysis_tmp$regression_results)) {
+      regression_results <- feature_analysis_tmp$regression_results[[future_hours_col]]
+    }
+    if (!is.null(regression_results)) {
+      keep_features <- regression_results$feature[regression_results$p_value <= pval_filter]
+      # Always keep id, outcomes, and tracking vars
+      keep_always <- c(id_var, static_vars_full, outcome_new_names, binary_outcome_new_names, outcome_vars2, flag_vars)
+      keep_final <- unique(c(keep_always, keep_features))
+      n_before <- ncol(patients_feat)
+      patients_feat <- patients_feat[, intersect(names(patients_feat), keep_final), with = FALSE]
+      n_after <- ncol(patients_feat)
+      message(sprintf("pval_filter applied: kept %d features (removed %d with p > %.3f for %s)",
+                      n_after, n_before - n_after, pval_filter, future_hours_col))
+    } else {
+      warning(sprintf("pval_filter requested but regression results for %s not found. No p-value filtering applied.", future_hours_col))
+      message(sprintf("pval_filter requested but regression results for %s not found. No p-value filtering applied.", future_hours_col))
+    }
+  }
+
   # 16. Sort patient dataframe according to specifications
   patients_feat <- sort_patient_dataframe(patients_feat, id_var, static_vars, dynamic_vars, use_followup_weights)
 
@@ -1418,23 +1447,29 @@ engineer_utilization <- function(
     # Create all file paths in the same directory
     visits_file <- file.path(output_dir, paste0("visits_", base_name, timestamp_suffix, ".rds"))
     patients_file <- file.path(output_dir, paste0("patients_", base_name, timestamp_suffix, ".rds"))
-    util_file <- file.path(output_dir, paste0tilization_summary", timestamp_suffix, ".rds"))
+    util_file <- file.path(output_dir, paste0("utilization_summary", timestamp_suffix, ".rds"))
     analysis_file <- file.path(output_dir, paste0("feature_analysis_", base_name, timestamp_suffix, ".rds"))
     
     saveRDS(visits_feat, visits_file)
     saveRDS(patients_feat, patients_file)
     saveRDS(utilization_summary, util_file)
-    if (!is.null(feature_analysis)) {
-      saveRDS(feature_analysis, analysis_file)
-    }
+    saveRDS(analysis_file, analysis_file)
+    
+    # Save engineering analysis (feature_analysis, data_quality_summary, feature_cleaning_summary)
+    engineering_analysis <- list(
+      feature_analysis = feature_analysis,
+      data_quality_summary = data_quality_summary,
+      feature_cleaning_summary = feature_cleaning_result$exclusion_summary
+    )
+    engineering_analysis_file <- file.path(output_dir, paste0("engineering_analysis", timestamp_suffix, ".rds"))
+    saveRDS(engineering_analysis, engineering_analysis_file)
+    message("  - Engineering analysis: ", basename(engineering_analysis_file))
     
     message("Files saved to directory: ", output_dir)
     message("  - Visits data: ", basename(visits_file))
     message("  - Patients data: ", basename(patients_file))
     message("  - Utilization summary: ", basename(util_file))
-    if (!is.null(feature_analysis)) {
-      message("  - Feature analysis: ", basename(analysis_file))
-    }
+    message("  - Feature analysis: ", basename(analysis_file))
   }
 
   return(list(
@@ -1445,4 +1480,4 @@ engineer_utilization <- function(
     data_quality_summary = data_quality_summary,
     feature_cleaning_summary = feature_cleaning_result$exclusion_summary
   ))
-} 
+}
