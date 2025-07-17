@@ -465,12 +465,16 @@ calculate_feature_analysis <- function(patients_feat, verbose = FALSE) {
   }
   
   # Identify outcome and feature columns (more comprehensive)
-  outcome_cols <- grep("future_", names(patients_feat), value = TRUE)
+  outcome_cols <- grep("^(future_|vut|hut)", names(patients_feat), value = TRUE)
   tracking_vars <- c("actual_followup_days", "expected_followup_days", "followup_complete", 
                      "followup_completeness_ratio", "prediction_weight", "single_visit_flag", "same_day_visits_flag")
   
-  # Ensure outcome columns are numeric
-  for (col in outcome_cols) {
+  # Separate continuous and categorical outcomes
+  continuous_outcomes <- grep("^future_", outcome_cols, value = TRUE)
+  categorical_outcomes <- grep("^(vut|hut)", outcome_cols, value = TRUE)
+  
+  # Ensure continuous outcome columns are numeric
+  for (col in continuous_outcomes) {
     if (!is.numeric(patients_feat[[col]])) {
       patients_feat[[col]] <- as.numeric(patients_feat[[col]])
     }
@@ -480,6 +484,8 @@ calculate_feature_analysis <- function(patients_feat, verbose = FALSE) {
   feature_cols <- setdiff(names(patients_feat), c("patient_id", outcome_cols, tracking_vars))
   
   message("Outcome columns found: ", paste(outcome_cols, collapse = ", "))
+  message("  - Continuous outcomes: ", paste(continuous_outcomes, collapse = ", "))
+  message("  - Categorical outcomes: ", paste(categorical_outcomes, collapse = ", "))
   message("Feature columns found: ", length(feature_cols), " features")
   
   message("Feature importance analysis:")
@@ -487,39 +493,50 @@ calculate_feature_analysis <- function(patients_feat, verbose = FALSE) {
   message("  - Features found: ", length(feature_cols))
   message("  - Total patients: ", nrow(patients_feat))
   
-  if (length(outcome_cols) == 0 || length(feature_cols) == 0) {
-    message("No outcome or feature columns found for analysis")
+  if (length(continuous_outcomes) == 0 || length(feature_cols) == 0) {
+    message("No continuous outcome or feature columns found for analysis")
     return(NULL)
   }
   
-  # Select numeric columns for analysis
-  analysis_data <- patients_feat[, c(feature_cols, outcome_cols), with = FALSE]
+  # Select numeric columns for analysis (only continuous outcomes and features)
+  analysis_data <- patients_feat[, c(feature_cols, continuous_outcomes), with = FALSE]
   numeric_cols <- sapply(analysis_data, is.numeric)
   analysis_data <- analysis_data[, names(analysis_data)[numeric_cols], with = FALSE]
 
   # PATCH: Check for missing or non-numeric outcome columns
-  missing_outcomes <- setdiff(outcome_cols, names(analysis_data))
+  missing_outcomes <- setdiff(continuous_outcomes, names(analysis_data))
   if (length(missing_outcomes) > 0) {
-    warning(paste0("The following outcome columns are missing or not numeric in analysis_data: ", paste(missing_outcomes, collapse = ", ")))
+    warning(paste0("The following continuous outcome columns are missing or not numeric in analysis_data: ", paste(missing_outcomes, collapse = ", ")))
     message("Names in analysis_data: ", paste(names(analysis_data), collapse = ", "))
-    message("Outcome columns expected: ", paste(outcome_cols, collapse = ", "))
+    message("Continuous outcome columns expected: ", paste(continuous_outcomes, collapse = ", "))
     return(NULL)
   }
 
   # PATCH: Diagnostic printout for outcome columns (only if verbose)
   if (verbose) {
-    for (col in outcome_cols) {
+    # Print summary for continuous outcomes
+    for (col in continuous_outcomes) {
       if (col %in% names(analysis_data)) {
-        message(paste0("Summary for outcome column '", col, "':"))
+        message(paste0("Summary for continuous outcome column '", col, "':"))
         print(summary(analysis_data[[col]]))
         message(paste0("NA count for '", col, "': ", sum(is.na(analysis_data[[col]]))))
       }
     }
+    
+    # Print summary for categorical outcomes (factors)
+    for (col in categorical_outcomes) {
+      if (col %in% names(patients_feat)) {
+        message(paste0("Summary for categorical outcome column '", col, "':"))
+        print(summary(patients_feat[[col]]))
+        message(paste0("NA count for '", col, "': ", sum(is.na(patients_feat[[col]]))))
+      }
+    }
+    
     # Print number of complete cases
     n_complete_all <- sum(complete.cases(analysis_data))
-    n_complete_outcomes <- sum(complete.cases(analysis_data[, outcome_cols, with = FALSE]))
+    n_complete_outcomes <- sum(complete.cases(analysis_data[, continuous_outcomes, with = FALSE]))
     message(paste0("Number of complete cases (all columns): ", n_complete_all))
-    message(paste0("Number of complete cases (outcome columns only): ", n_complete_outcomes))
+    message(paste0("Number of complete cases (continuous outcome columns only): ", n_complete_outcomes))
   }
   
   if (ncol(analysis_data) < 2) {
@@ -528,7 +545,7 @@ calculate_feature_analysis <- function(patients_feat, verbose = FALSE) {
   }
   
   # Check which outcomes made it into the analysis data
-  analysis_outcomes <- intersect(outcome_cols, names(analysis_data))
+  analysis_outcomes <- intersect(continuous_outcomes, names(analysis_data))
   
   # 1. Enhanced Correlation Analysis
   correlation_matrix <- cor(analysis_data, use = "complete.obs")
@@ -553,16 +570,20 @@ calculate_feature_analysis <- function(patients_feat, verbose = FALSE) {
       # Remove self-correlation, NA values, and other outcomes
       correlations <- correlations[!is.na(correlations) & correlations != 1]
       # Only keep correlations with feature variables (not other outcomes)
-      feature_correlations <- correlations[names(correlations) %in% feature_vars]
-      
-      # Sort by absolute value and get top 10
-      correlations_abs <- abs(feature_correlations)
-      top_indices <- order(correlations_abs, decreasing = TRUE)[1:min(10, length(correlations_abs))]
-      top_correlations <- feature_correlations[top_indices]
-      
-      # Ensure we preserve the feature names and have valid data
-      if (length(top_correlations) > 0 && !is.null(names(top_correlations))) {
-        outcome_correlations[[outcome]] <- top_correlations
+      # Ensure we only use features that are actually in the correlation matrix
+      available_features <- intersect(names(correlations), feature_cols)
+      if (length(available_features) > 0) {
+        feature_correlations <- correlations[available_features]
+        
+        # Sort by absolute value and get top 10
+        correlations_abs <- abs(feature_correlations)
+        top_indices <- order(correlations_abs, decreasing = TRUE)[1:min(10, length(correlations_abs))]
+        top_correlations <- feature_correlations[top_indices]
+        
+        # Ensure we preserve the feature names and have valid data
+        if (length(top_correlations) > 0 && !is.null(names(top_correlations))) {
+          outcome_correlations[[outcome]] <- top_correlations
+        }
       }
     }
   }
@@ -577,7 +598,7 @@ calculate_feature_analysis <- function(patients_feat, verbose = FALSE) {
   
   # Helper to sanitize feature names for formulas
   sanitize_feature_name <- function(x) {
-    if (grepl("[^a-zA-Z0-9_]", x)) paste0("`", x, "`") else x
+    if (grepl("[^a-zA-Z09_]", x)) paste0("`", x, "`") else x
   }
   
   for (outcome in analysis_outcomes) {
@@ -587,9 +608,16 @@ calculate_feature_analysis <- function(patients_feat, verbose = FALSE) {
 
       if (nrow(reg_data) > 10) {
         # Get top features by correlation for regression (use more features)
-        outcome_correlations <- abs(correlation_matrix[outcome, feature_vars])
-        # Use top 20 features or all features if fewer than 20
-        n_features_to_use <- min(20, length(feature_vars))
+        # Ensure we only use features that are actually in the correlation matrix
+        available_features <- intersect(colnames(correlation_matrix), feature_cols)
+        if (length(available_features) == 0) {
+          message("No features available for regression analysis of ", outcome)
+          next
+        }
+        
+        outcome_correlations <- abs(correlation_matrix[outcome, available_features])
+        # Use top 20es or all features if fewer than 20
+        n_features_to_use <- min(20, length(available_features))
         top_features <- names(sort(outcome_correlations, decreasing = TRUE)[1:n_features_to_use])
 
         # Sanitize feature names for formula
@@ -669,11 +697,11 @@ calculate_feature_analysis <- function(patients_feat, verbose = FALSE) {
   
   # 4. Feature Categories Analysis
   feature_categories <- list(
-    visit_patterns = grep("n_visits|n_days_active|mean_gap|max_gap", feature_vars, value = TRUE),
-    timing_patterns = grep("pct_|weekday|time_bin", feature_vars, value = TRUE),
-    clinical_patterns = grep("diagnosis|medication|provider", feature_vars, value = TRUE),
-    financial_patterns = grep("copay|prepay|payer", feature_vars, value = TRUE),
-    demographic_patterns = grep("age|sex|race|marital", feature_vars, value = TRUE)
+    visit_patterns = grep("n_visits|n_days_active|mean_gap|max_gap", feature_cols, value = TRUE),
+    timing_patterns = grep("pct_|weekday|time_bin", feature_cols, value = TRUE),
+    clinical_patterns = grep("diagnosis|medication|provider", feature_cols, value = TRUE),
+    financial_patterns = grep("copay|prepay|payer", feature_cols, value = TRUE),
+    demographic_patterns = grep("age|sex|race|marital", feature_cols, value = TRUE)
   )
   
   # Calculate average importance by category
@@ -696,12 +724,16 @@ calculate_feature_analysis <- function(patients_feat, verbose = FALSE) {
   for (outcome in analysis_outcomes) {
     if (outcome %in% names(analysis_data)) {
       # Combine correlation and variance metrics
-      cor_scores <- abs(correlation_matrix[outcome, feature_vars])
-      var_scores <- variances[feature_vars] / max(variances, na.rm = TRUE)
-      
-      # Create composite score (normalized correlation + variance)
-      composite_scores <- (cor_scores + var_scores) / 2
-      feature_rankings[[outcome]] <- sort(composite_scores, decreasing = TRUE)[1:10]
+      # Ensure we only use features that are actually in the correlation matrix
+      available_features <- intersect(colnames(correlation_matrix), feature_cols)
+      if (length(available_features) > 0) {
+        cor_scores <- abs(correlation_matrix[outcome, available_features])
+        var_scores <- variances[available_features] / max(variances, na.rm = TRUE)
+        
+        # Create composite score (normalized correlation + variance)
+        composite_scores <- (cor_scores + var_scores) / 2
+        feature_rankings[[outcome]] <- sort(composite_scores, decreasing = TRUE)[1:10]
+      }
     }
   }
   
@@ -714,7 +746,7 @@ calculate_feature_analysis <- function(patients_feat, verbose = FALSE) {
     feature_categories = feature_categories,
     category_importance = category_importance,
     analysis_summary = list(
-      total_features = length(feature_vars),
+      total_features = length(feature_cols),
       total_outcomes = length(analysis_outcomes),
       features_analyzed = ncol(analysis_data),
       regression_models_fitted = length(regression_results)
@@ -750,7 +782,7 @@ clean_features <- function(data, id_var, static_vars,
   }
   
   # Get feature variables (exclude ID, demographics, outcomes, tracking variables, and any extra exclude_vars)
-  outcome_vars <- grep("future_", names(data), value = TRUE)
+  outcome_vars <- grep("^(future_|vut|hut)", names(data), value = TRUE)
   tracking_vars <- c("actual_followup_days", "expected_followup_days", "followup_complete", 
                      "followup_completeness_ratio", "prediction_weight")
   flag_vars <- c("single_visit_flag", "same_day_visits_flag")
@@ -1024,7 +1056,7 @@ sort_patient_dataframe <- function(patients_feat, id_var, static_vars, dynamic_v
   id_cols <- id_var
   
   # 2. outcomes (future_* variables and binary outcomes)
-  outcome_cols <- grep("^future_", names(patients_feat), value = TRUE)
+  outcome_cols <- grep("^(future_|vut|hut)", names(patients_feat), value = TRUE)
   binary_outcome_cols <- grep("^(hut|vut)", names(patients_feat), value = TRUE)
   outcome_cols <- c(outcome_cols, binary_outcome_cols)
   
@@ -1175,18 +1207,44 @@ filter_visits_data <- function(visits_data, filter_var, filter_levels, id_var, l
 
 # 4. Create Patient Index
 create_patient_index_modular <- function(visits_data, id_var, observed_days, prediction_months, log_file) {
+  # Log initial patient count
+  initial_patients <- length(unique(visits_data[[id_var]]))
+  log_msg(paste0("Initial patient count: ", initial_patients), log_file)
+  
   patients_index <- visits_data[, .(index_date = min(date)), by = id_var]
   dataset_end_date <- max(visits_data$date, na.rm = TRUE)
   total_timeline_days <- observed_days + (prediction_months * 30.44)
   patients_index[, available_days := as.numeric(dataset_end_date - index_date)]
   exclusion_threshold_days <- observed_days * 2
   flagging_threshold_days <- total_timeline_days
-  patients_index[, prediction_end_date := pmin(index_date + days(observed_days) + days(as.integer(prediction_months * 30.44)), dataset_end_date)]
+  
+  # Log timeline exclusion criteria
+  log_msg(paste0("Timeline exclusion criteria: available_days >= ", exclusion_threshold_days, " (", observed_days, " * 2)"), log_file)
+  
+  patients_index[, prediction_end_date := pmin(index_date + lubridate::days(observed_days) + lubridate::days(as.integer(prediction_months * 30.44)), dataset_end_date)]
   patients_index[, `:=`(
-    feature_end_date = index_date + days(observed_days),
-    actual_followup_days = as.numeric(prediction_end_date - (index_date + days(observed_days)))
+    feature_end_date = index_date + lubridate::days(observed_days),
+    actual_followup_days = as.numeric(prediction_end_date - (index_date + lubridate::days(observed_days)))
   )]
+  
+  # Log patients excluded due to insufficient timeline
+  patients_before_timeline_filter <- nrow(patients_index)
   patients_index <- patients_index[available_days >= exclusion_threshold_days]
+  patients_after_timeline_filter <- nrow(patients_index)
+  timeline_exclusions <- patients_before_timeline_filter - patients_after_timeline_filter
+  percent_excluded <- if (patients_before_timeline_filter > 0) round(100 * timeline_exclusions / patients_before_timeline_filter, 1) else 0
+  log_msg(paste0("Patients excluded due to insufficient timeline data: ", timeline_exclusions, " (", percent_excluded, "%)"), log_file)
+  log_msg(paste0("Patients remaining after timeline filter: ", patients_after_timeline_filter), log_file)
+  
+  # Log timeline statistics for remaining patients
+  if (patients_after_timeline_filter > 0) {
+    avg_available_days <- round(mean(patients_index$available_days), 1)
+    min_available_days <- min(patients_index$available_days)
+    max_available_days <- max(patients_index$available_days)
+    log_msg(paste0("Timeline statistics for remaining patients - Avg: ", avg_available_days, 
+                   " days, Range: ", min_available_days, " - ", max_available_days, " days"), log_file)
+  }
+  
   patients_index
 }
 
@@ -1205,20 +1263,21 @@ engineer_utilization <- function(
   id_var,
   static_vars = character(0),
   dynamic_vars = character(0),
+  diagnosis_var = NULL,
+  medications_var = NULL,
   observed_days,
   prediction_months,
   filter_var = NULL,
   filter_levels = NULL,
-  diagnosis_var = NULL,
-  medications_var = NULL,
-  require_complete_followup = FALSE,
-  use_followup_weights = TRUE,
-  output_path = NULL,
   missing_threshold = 0.1,
   variance_threshold = 0.01,
   near_zero_var_threshold = 0.95,
   correlation_threshold = 0.95,
+  require_complete_followup = FALSE,
+  use_followup_weights = TRUE,
+  output_path = NULL,
   log_file = NULL,
+  timestamped_files = FALSE,
   verbose = FALSE
 ) {
   # 1. Input Validation
@@ -1253,6 +1312,24 @@ engineer_utilization <- function(
   # 9. Calculate outcomes
   outcomes <- calculate_outcomes(visits_data, patients_index, id_var, prediction_months, use_followup_weights)
 
+  # 9.5. Follow-up completeness and weights statistics
+  if (nrow(outcomes) > 0) {
+    n_complete <- if ("followup_complete" %in% names(outcomes)) sum(outcomes$followup_complete, na.rm = TRUE) else NA
+    n_truncated <- if ("followup_complete" %in% names(outcomes)) sum(!outcomes$followup_complete, na.rm = TRUE) else NA
+    completeness_rate <- if ("followup_complete" %in% names(outcomes)) round(100 * mean(outcomes$followup_complete, na.rm = TRUE), 1) else NA
+    avg_weight <- if ("prediction_weight" %in% names(outcomes)) round(mean(outcomes$prediction_weight, na.rm = TRUE), 3) else NA
+    n_high_conf <- if ("prediction_weight" %in% names(outcomes)) sum(outcomes$prediction_weight >= 0.8, na.rm = TRUE) else NA
+    n_med_conf <- if ("prediction_weight" %in% names(outcomes)) sum(outcomes$prediction_weight >= 0.5 & outcomes$prediction_weight < 0.8, na.rm = TRUE) else NA
+    n_low_conf <- if ("prediction_weight" %in% names(outcomes)) sum(outcomes$prediction_weight < 0.5, na.rm = TRUE) else NA
+    message("  - Patients with complete follow-up: ", n_complete)
+    message("  - Patients with truncated follow-up: ", n_truncated)
+    message("  - Follow-up completeness rate: ", completeness_rate, "%")
+    message("  - Average prediction weight: ", avg_weight)
+    message("  - Patients with high confidence (weight >= 0.8): ", n_high_conf)
+    message("  - Patients with medium confidence (0.5 <= weight < 0.8): ", n_med_conf)
+    message("  - Patients with low confidence (weight < 0.5): ", n_low_conf)
+  }
+
   # 10. Merge features and outcomes
   model_data <- merge(features, outcomes, by = id_var, all.x = TRUE)
 
@@ -1268,8 +1345,17 @@ engineer_utilization <- function(
       model_data[is.na(get(var)), (var) := factor("Low", levels = c("High", "Low"))]
     }
   }
+  # Log patients excluded due to incomplete follow-up if required
+  patients_before_followup_filter <- nrow(model_data)
   if (require_complete_followup) {
     model_data <- model_data[followup_complete == TRUE]
+    patients_after_followup_filter <- nrow(model_data)
+    followup_exclusions <- patients_before_followup_filter - patients_after_followup_filter
+    percent_excluded_followup <- if (patients_before_followup_filter > 0) round(100 * followup_exclusions / patients_before_followup_filter, 1) else 0
+    if (!is.null(log_file)) {
+      log_msg(paste0("Patients excluded due to incomplete follow-up: ", followup_exclusions, " (", percent_excluded_followup, "%)"), log_file)
+      log_msg(paste0("Patients remaining after follow-up filter: ", patients_after_followup_filter), log_file)
+    }
   }
   outcome_cols <- c("future_visits", "future_hours")
   missing_outcomes <- setdiff(outcome_cols, names(model_data))
@@ -1321,13 +1407,19 @@ engineer_utilization <- function(
       output_dir <- getwd()
     }
     base_name <- tools::file_path_sans_ext(basename(output_path))
-    timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+    
+    # Create timestamp if requested
+    timestamp_suffix <- ""
+    if (timestamped_files) {
+      timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+      timestamp_suffix <- paste0("_", timestamp)
+    }
     
     # Create all file paths in the same directory
-    visits_file <- file.path(output_dir, paste0(base_name, "_visits_", timestamp, ".rds"))
-    patients_file <- file.path(output_dir, paste0(base_name, "_patients_", timestamp, ".rds"))
-    util_file <- file.path(output_dir, paste0(base_name, "_utilization_summary_", timestamp, ".rds"))
-    analysis_file <- file.path(output_dir, paste0(base_name, "_feature_analysis_", timestamp, ".rds"))
+    visits_file <- file.path(output_dir, paste0("visits_", base_name, timestamp_suffix, ".rds"))
+    patients_file <- file.path(output_dir, paste0("patients_", base_name, timestamp_suffix, ".rds"))
+    util_file <- file.path(output_dir, paste0tilization_summary", timestamp_suffix, ".rds"))
+    analysis_file <- file.path(output_dir, paste0("feature_analysis_", base_name, timestamp_suffix, ".rds"))
     
     saveRDS(visits_feat, visits_file)
     saveRDS(patients_feat, patients_file)
@@ -1343,24 +1435,6 @@ engineer_utilization <- function(
     if (!is.null(feature_analysis)) {
       message("  - Feature analysis: ", basename(analysis_file))
     }
-  }
-
-  # 19. Summary statistics (unchanged, can be modularized further if desired)
-  if (nrow(patients_feat) > 0) {
-    n_complete <- if ("followup_complete" %in% names(patients_feat)) sum(patients_feat$followup_complete, na.rm = TRUE) else NA
-    n_truncated <- if ("followup_complete" %in% names(patients_feat)) sum(!patients_feat$followup_complete, na.rm = TRUE) else NA
-    completeness_rate <- if ("followup_complete" %in% names(patients_feat)) round(100 * mean(patients_feat$followup_complete, na.rm = TRUE), 1) else NA
-    avg_weight <- if ("prediction_weight" %in% names(patients_feat)) round(mean(patients_feat$prediction_weight, na.rm = TRUE), 3) else NA
-    n_high_conf <- if ("prediction_weight" %in% names(patients_feat)) sum(patients_feat$prediction_weight >= 0.8, na.rm = TRUE) else NA
-    n_med_conf <- if ("prediction_weight" %in% names(patients_feat)) sum(patients_feat$prediction_weight >= 0.5 & patients_feat$prediction_weight < 0.8, na.rm = TRUE) else NA
-    n_low_conf <- if ("prediction_weight" %in% names(patients_feat)) sum(patients_feat$prediction_weight < 0.5, na.rm = TRUE) else NA
-    message("  - Patients with complete follow-up: ", n_complete)
-    message("  - Patients with truncated follow-up: ", n_truncated)
-    message("  - Follow-up completeness rate: ", completeness_rate, "%")
-    message("  - Average prediction weight: ", avg_weight)
-    message("  - Patients with high confidence (weight >= 0.8): ", n_high_conf)
-    message("  - Patients with medium confidence (0.5 <= weight < 0.8): ", n_med_conf)
-    message("  - Patients with low confidence (weight < 0.5): ", n_low_conf)
   }
 
   return(list(

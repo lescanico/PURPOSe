@@ -62,7 +62,7 @@ This work contributes a novel framework for operational forecasting in outpatien
 
 **RESULTS**
 
-**Model Performance**  
+**Model Performance**
 
 **Utilization Load by Tier**
 
@@ -134,7 +134,7 @@ The data used in this study were extracted from Penn Medicine's Epic electronic 
 
 ### Initiation
 
-```{r renv-init, eval=TRUE}
+```{r renv-init, eval=FALSE}
 # Install and initialize renv from scratch if needed
 # (Ensures reproducible environment)
 
@@ -162,7 +162,7 @@ renv::snapshot()
 
 ### Package Management
 
-```{r packages, eval=TRUE}
+```{r packages, eval=FALSE}
 # Ensure all required packages are installed and loaded (within renv environment)
 required_packages <- c(
   "readr", "dplyr", "tidyr", "janitor", "lubridate", "stringr", "forcats",
@@ -536,43 +536,6 @@ visits_clean |>
   saveRDS("data/visits_clean.rds")
 ```
 
-### NLP-based Diagnosis and Medication Classification (Python via reticulate)
-
-```{r nlp_classification, eval=FALSE}
-# Step 2.5: Use Python NLP to classify diagnoses and medications
-# - Calls a Python script via reticulate to add logical columns for DSM-5 classes and psychotropic groups
-# - Saves updated visits_clean for downstream feature engineering
-
-# Ensure reticulate is installed and loaded
-if (!requireNamespace("reticulate", quietly = TRUE)) {
-  install.packages("reticulate", repos = "https://cloud.r-project.org")
-}
-library(reticulate)
-
-# Tell reticulate to use your Python 3.13 installation
-reticulate::use_python("C:/Users/lescanon/AppData/Local/Programs/Python/Python313/python.exe", required = TRUE)
-
-# Load cleaned data
-visits_clean <- readRDS("data/visits_clean.rds")
-
-# Convert to data.frame for reticulate compatibility
-visits_clean_df <- as.data.frame(visits_clean)
-
-# Source the Python script (assumes classify_nlp.py exists in project root)
-# The script should define a function: classify_visits(df) -> returns df with new logical columns
-source_python("scripts/classify_nlp.py")
-
-# Call the Python function
-enriched_visits <- classify_visits(visits_clean_df)
-
-# Convert back to tibble (if needed)
-library(tibble)
-visits_clean <- as_tibble(enriched_visits)
-
-# Save the updated data for downstream use
-saveRDS(visits_clean, "data/visits_clean.rds")
-```
-
 ### Feature Engineering
 
 ```{r engineer, eval=FALSE}
@@ -590,22 +553,23 @@ visits_clean <- readRDS("data/visits_clean.rds")
 features <- engineer_utilization(
   visits_data = visits_clean,
   id_var = "patient_id",
+  observed_days = 90,
+  prediction_months = 12,
   static_vars = c("age", "sex", "race", "is_hispanic", "marital_status", "religion", "zip3"),
   dynamic_vars = c("payer", "pay_net", "portal_engagement", "is_portal_active", "is_tele"),
   diagnosis_var = "diagnosis",
   medications_var = "medications",
-  observed_days = 90,
-  prediction_months = 12,
-  require_complete_followup = FALSE,
-  use_followup_weights = TRUE,
-  output_path = "data/model_90d_12m.rds",
   filter_var = NULL,
   filter_levels = NULL,
   missing_threshold = 0.1,
   variance_threshold = 0.01,
   near_zero_var_threshold = 0.95,
   correlation_threshold = 0.95,
+  require_complete_followup = FALSE,
+  use_followup_weights = TRUE,
+  output_path = "data/90d_12m.rds",
   log_file = "data/feature_engineering.log",
+  timestamped_files = FALSE,
   verbose = TRUE
 )
 ```
@@ -623,11 +587,7 @@ library(tidymodels)
 library(dplyr)
 library(readr)
 
-if (!file.exists("data/model_90d_12m_patients.rds")) {
-  stop("File 'data/model_90d_12m_patients.rds' not found. Run feature engineering first.")
-}
-
-patients_feat <- readRDS("data/model_90d_12m_patients.rds")
+patients_feat <- readRDS("data/patients_90d_12m.rds")
 
 # Add decile column for stratification
 patients_feat <- patients_feat |>
@@ -850,7 +810,7 @@ print(performance)
 
 ### Utilization Summary and Pareto Analysis
 
-```{r util_class, eval=FALSE}
+```{r util_class, eval=FALSE, echo=FALSE}
 # Step 4: Summarize utilization by class and output as both PNG and CSV
 
 library(dplyr)
@@ -940,7 +900,7 @@ gtsave(gt_table, "data/utilization_summary.png")
 write.csv(util_class_summary, "data/utilization_summary.csv", row.names = FALSE)
 ```
 
-![](data/utilization_summary.png)
+![](tables/utilization_summary.png)
 
 ```{r pareto, eval=FALSE, echo=FALSE}
 # Step 5: Generate and save Pareto plot of utilization
@@ -1011,14 +971,14 @@ pareto_plot <- ggplot(patient_pareto, aes(x = pct_patients, y = pct_hours)) +
     coord_fixed()
 
 # Save
-ggsave("data/utilization_pareto.png", pareto_plot, dpi = 300)
+ggsave("figures/utilization_pareto.png", pareto_plot, dpi = 300)
 ```
 
-![](data/utilization_pareto.png)
+![](figures/utilization_pareto.png)
 
 ### Utilization Feature Engineering Function
 
-```{r appendix_engineer, echo=TRUE}
+```{r appendix_engineer, eval=FALSE}
 # The following script is included for transparency and reproducibility.
 # It defines the engineer_utilization() function used above.
 
@@ -1027,7 +987,7 @@ ggsave("data/utilization_pareto.png", pareto_plot, dpi = 300)
 
 ## Session Info
 
-```{r session_info, echo=TRUE}
+```{r session_info, eval=FALSE}
 # Print session info and renv status for reproducibility
 sessionInfo()
 renv::status()
